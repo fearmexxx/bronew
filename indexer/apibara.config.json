@@ -1,0 +1,31 @@
+{
+  "id": "brother-domain-indexer",
+  "version": "0.1.0",
+  "description": "Indexer for Brother ID events",
+  "network": "starknet-sepolia",
+  "filter": {
+    "header": {
+      "weak": true
+    },
+    "events": [
+      {
+        "from_address": "0x1031fbbf843f059e8c6c923a472458eb4384513c5fd087ca5054a56f4d9cf41",
+        "keys": [
+          "0x02ac2972ebc7a424742a0346bf272764a77a87c67776264627473772277d7376" 
+        ]
+      },
+      {
+        "from_address": "0x1031fbbf843f059e8c6c923a472458eb4384513c5fd087ca5054a56f4d9cf41",
+        "keys": [
+          "0x0099cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9"
+        ]
+      }
+    ]
+  },
+  "sink": {
+    "type": "mongo",
+    "connection_string": "${MONGO_CONNECTION_STRING}",
+    "database": "brother_id",
+    "collection": "events"
+  }
+}

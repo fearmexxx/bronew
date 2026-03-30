@@ -1,0 +1,5 @@
+{
+  "name": "Starknet Brother ID",
+  "description": "A decentralized domain name service application for the Starknet ecosystem. Users can manage, browse, register, find, and auction domain names using Starknet wallets and the $BROTHER token. The app features a clean, modern, cyberpunk-themed user interface.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,29 @@
+{
+  "name": "tictactoe",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "deploy": "ts-node scripts/deploy.ts",
+    "deploy:bns": "ts-node scripts/deploy_bns.ts",
+    "deploy:upgradable": "ts-node scripts/deploy_upgradable_bns.ts",
+    "upgrade:contract": "ts-node scripts/upgrade_contract.ts",
+    "deploy:brother-token": "ts-node scripts/deploy_brother_token.ts",
+    "mint:brother-token": "ts-node scripts/mint_brother_token.ts",
+    "register:domain": "ts-node scripts/register_domain.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@tsconfig/node21": "21.0.3",
+    "dotenv": "16.4.5",
+    "starknet": "^7.0.0",
+    "ts-node": "10.9.2",
+    "tslib": "^2.7.0",
+    "typescript": "5.5.4"
+  }
+}

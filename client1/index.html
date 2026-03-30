@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Starknet Brother ID</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0D1117;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        @media (max-width: 640px) {
+            body {
+                font-size: 14px;
+            }
+        }
+
+        @keyframes glow {
+            0% {
+                box-shadow: 0 0 5px rgba(0, 242, 161, 0.2), 0 0 5px rgba(0, 198, 255, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 20px rgba(0, 242, 161, 0.5), 0 0 20px rgba(0, 198, 255, 0.5);
+            }
+
+            100% {
+                box-shadow: 0 0 5px rgba(0, 242, 161, 0.2), 0 0 5px rgba(0, 198, 255, 0.2);
+            }
+        }
+
+        .gradient-border {
+            border: 2px solid;
+            border-image-slice: 1;
+            border-image-source: linear-gradient(to right, #00f2a1, #00c6ff);
+            animation: glow 4s infinite ease-in-out;
+        }
+
+        .btn-hover-effect {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .btn-hover-effect:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .btn-hover-effect:active:not(:disabled) {
+            transform: translateY(0);
+            filter: brightness(1);
+        }
+
+        .list-item-hover {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .list-item-hover:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 10px rgba(0, 198, 255, 0.2);
+        }
+
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fade-in 0.5s ease-out forwards;
+        }
+
+        @keyframes slide-in-right {
+            from {
+                transform: translateX(100%);
+            }
+
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        .animate-slide-in-right {
+            animation: slide-in-right 0.3s ease-out forwards;
+        }
+
+        @keyframes fade-in-backdrop {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .animate-fade-in-backdrop {
+            animation: fade-in-backdrop 0.3s ease-out forwards;
+        }
+
+        @keyframes fade-out-backdrop {
+            from {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+            }
+        }
+
+        .animate-fade-out-backdrop {
+            animation: fade-out-backdrop 0.3s ease-out forwards;
+        }
+
+        @keyframes slide-out-right {
+            from {
+                transform: translateX(0);
+            }
+
+            to {
+                transform: translateX(100%);
+            }
+        }
+
+        .animate-slide-out-right {
+            animation: slide-out-right 0.3s ease-out forwards;
+        }
+
+        @keyframes fade-in-scale-up {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .animate-fade-in-scale-up {
+            animation: fade-in-scale-up 0.3s ease-out forwards;
+        }
+
+        @keyframes fade-out-scale-down {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+        }
+
+        .animate-fade-out-scale-down {
+            animation: fade-out-scale-down 0.3s ease-out forwards;
+        }
+
+        @keyframes pulse-warning {
+
+            0%,
+            100% {
+                text-shadow: 0 0 5px rgba(255, 193, 7, 0.7);
+            }
+
+            50% {
+                text-shadow: 0 0 20px rgba(255, 193, 7, 1);
+            }
+        }
+
+        .animate-pulse-warning {
+            animation: pulse-warning 2s infinite ease-in-out;
+            color: #ffc107;
+            /* A bright amber color */
+        }
+    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/index.css">
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://aistudiocdn.com/react@^19.2.0",
+        "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+        "react/": "https://aistudiocdn.com/react@^19.2.0/",
+        "@google/genai": "https://aistudiocdn.com/@google/genai@^1.25.0"
+      }
+    }
+    </script>
+    <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>
