@@ -10,7 +10,7 @@ import {
 import { sepolia } from "@starknet-react/chains";
 import { ArgentMobileConnector } from "starknetkit/argentMobile";
 
-const SEPOLIA_RPC_URL = (import.meta as any).env?.VITE_STARKNET_RPC || "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/3S-9NEC4IdEbT_sx5zfRd";
+const SEPOLIA_RPC_URL = (import.meta as any).env?.VITE_STARKNET_RPC || "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/qXU4ta4yLmxUhIoLb-cZ7KtsNn808Pjw";
 
 const customProvider = jsonRpcProvider({
   rpc: () => ({ nodeUrl: SEPOLIA_RPC_URL }),

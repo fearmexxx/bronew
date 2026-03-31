@@ -1,7 +1,7 @@
 # Brother ID Project Memo
 
 **Last Updated:** January 19, 2026
-**Revision:** 0.6.0 - Completed Phases 1-4 & Git Reset
+**Revision:** 0.7.0 - Alchemy RPC Compatibility & Feature Stabilization
 
 ## 1. Executive Summary
 **Brother ID** (Brother Naming Service - BNS) is a decentralized identity provider built on **Starknet**. It enables users to register, manage, and auction human-readable identities (ending in `.real`) mapped to blockchain addresses. The project consists of a React-based frontend (`client1`) and Cairo v2 smart contracts (`contracts`).
@@ -70,14 +70,16 @@
 
 ## 4. Current State & Configuration
 
-- **Network:** Sepolia Testnet (default RPCs configured).
+- **Network:** Sepolia Testnet (Alchemy v0_10 endpoint synced).
 - **Phase 1-4 Complete:** Text Records, Grace Period, Verification, Metadata, Infrastructure.
-- **Next Steps:** Deploy contract upgrade to activate new features on-chain.
+- **Stabilization:** Explicit `blockIdentifier: 'latest'` overrides implemented for high RPC reliability.
+- **Next Steps:** Deploy contract upgrade to activate new referrer and pricing features (V3).
 
 ## 5. Revision Log
 
 | Date | Version | Notes |
 | :--- | :--- | :--- |
+| **Jan 19, 2026** | **0.7.0** | Fixed Alchemy RPC "Invalid block id" error with universal `latest` blockID overrides. Updated `StarknetProvider`. |
 | **Jan 19, 2026** | **0.6.0** | Consolidated all changes. Reset git history for fresh repository state. |
 | **Jan 19, 2026** | **0.5.0** | Implemented Phase 4 (Infrastructure & Metadata). Added `get_full_profile` and `get_domain_svg` to contract. Created indexer config. |
 | **Jan 19, 2026** | **0.4.0** | Implemented Phase 3 (Verification System) and refined Phase 2 UI (Grace Period badges). |

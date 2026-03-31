@@ -105,19 +105,9 @@ export function useAuction() {
 
     const id = toast.loading("Creating auction...");
     try {
-      const { low: reserveLow, high: reserveHigh } = bigIntToU256Parts(reserve);
-      const { low: incLow, high: incHigh } = bigIntToU256Parts(increment);
-      
-      const tx = await account.execute([{
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "create_auction",
-        calldata: [
-          domain,
-          String(durationSecs),
-          reserveLow, reserveHigh,
-          incLow, incHigh,
-        ],
-      }]);
+      const tx = await account.execute([
+        contract.populate("create_auction", [domain, durationSecs, reserve, increment])
+      ]);
       await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
       toast.success("Auction created!", { id });
       return tx.transaction_hash as string;
@@ -137,33 +127,20 @@ export function useAuction() {
 
     const id = toast.loading("Checking allowance...");
     try {
-      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS);
+      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS, { blockIdentifier: 'latest' });
       const allowanceBig = u256ToBigInt(currentAllowance);
 
-      const { low, high } = bigIntToU256Parts(bidAmount);
       const calls: any[] = [];
 
       if (allowanceBig < bidAmount) {
         toast.loading("Preparing transaction...", { id });
         if (allowanceBig > BigInt(0)) {
-          calls.push({
-            contractAddress: BROTHER_TOKEN_ADDRESS,
-            entrypoint: "approve",
-            calldata: [BNS_CONTRACT_ADDRESS, "0", "0"],
-          });
+          calls.push(tokenContract.populate("approve", [BNS_CONTRACT_ADDRESS, 0n]));
         }
-        calls.push({
-          contractAddress: BROTHER_TOKEN_ADDRESS,
-          entrypoint: "approve",
-          calldata: [BNS_CONTRACT_ADDRESS, low, high],
-        });
+        calls.push(tokenContract.populate("approve", [BNS_CONTRACT_ADDRESS, bidAmount]));
       }
 
-      calls.push({
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "bid",
-        calldata: [domain, low, high],
-      });
+      calls.push(contract.populate("bid", [domain, bidAmount]));
 
       toast.loading("Placing bid...", { id });
       const tx = await account.execute(calls);
@@ -184,11 +161,9 @@ export function useAuction() {
     const domain = shortString.encodeShortString(domainName.replace('.real', ''));
     const id = toast.loading("Withdrawing refund...");
     try {
-      const tx = await account.execute([{
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "withdraw",
-        calldata: [domain],
-      }]);
+      const tx = await account.execute([
+        contract.populate("withdraw", [domain])
+      ]);
       await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
       toast.success("Refund withdrawn!", { id });
       return tx.transaction_hash as string;
@@ -206,11 +181,9 @@ export function useAuction() {
     const domain = shortString.encodeShortString(domainName.replace('.real', ''));
     const id = toast.loading("Settling auction...");
     try {
-      const tx = await account.execute([{
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "settle",
-        calldata: [domain],
-      }]);
+      const tx = await account.execute([
+        contract.populate("settle", [domain])
+      ]);
       await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
       toast.success("Auction settled!", { id });
       return tx.transaction_hash as string;
@@ -230,7 +203,7 @@ export function useAuction() {
     console.log(`getAuctionDetails: Encoded domain "${domainName}" to felt: ${domain}`);
     
     try {
-      const result: any = await contract.get_auction(domain);
+      const result: any = await contract.get_auction(domain, { blockIdentifier: 'latest' });
       console.log(`getAuctionDetails: Raw result for ${domainName}:`, result);
       console.log(`getAuctionDetails: Result type:`, typeof result, "Is array:", Array.isArray(result));
       
@@ -314,7 +287,7 @@ export function useAuction() {
 
     try {
       console.log("fetchActiveAuctionDomains: Calling contract.get_active_auction_domains()");
-      const result: any = await contract.get_active_auction_domains();
+      const result: any = await contract.get_active_auction_domains({ blockIdentifier: 'latest' });
       console.log("fetchActiveAuctionDomains: Raw result:", result);
       console.log("fetchActiveAuctionDomains: Result type:", typeof result);
       console.log("fetchActiveAuctionDomains: Is array?", Array.isArray(result));

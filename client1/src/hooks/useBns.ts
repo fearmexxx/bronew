@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useMemo } from "react";
-import { Abi, Contract, RpcProvider, shortString } from "starknet";
+import { Abi, Contract, RpcProvider, shortString, hash } from "starknet";
 import { toast } from "react-hot-toast";
 import { useAccount } from "@starknet-react/core";
 import { BNS_CONTRACT_ADDRESS, BROTHER_TOKEN_ADDRESS, provider } from "../constants";
@@ -36,8 +36,7 @@ const BNS_ABI: Abi = [
     { name: "years", type: "core::integer::u8" },
     { name: "resolver", type: "core::starknet::contract_address::ContractAddress" },
     { name: "has_strkdomain", type: "core::bool" },
-    { name: "has_brother_domain", type: "core::bool" },
-    { name: "referrer", type: "core::starknet::contract_address::ContractAddress" },
+    { name: "has_brother_domain", type: "core::bool" }
   ], outputs: [], state_mutability: "external" },
   { type: "function", name: "get_referral_earnings", inputs: [{ name: "address", type: "core::starknet::contract_address::ContractAddress" }], outputs: [{ type: "core::integer::u256" }], state_mutability: "view" },
   { type: "function", name: "propose_param_change", inputs: [{ name: "param_id", type: "core::integer::u8" }, { name: "value", type: "core::integer::u256" }], outputs: [], state_mutability: "external" },
@@ -130,7 +129,7 @@ export function useBns() {
   const isAvailable = useCallback(async (name: string) => {
     if (!name || name.length < 4) return false;
     const domain = shortString.encodeShortString(name);
-    const res: any = await contract.is_domain_available(domain);
+    const res: any = await contract.is_domain_available(domain, { blockIdentifier: 'latest' });
     return normalizeBool(res);
   }, [contract]);
 
@@ -138,7 +137,7 @@ export function useBns() {
     if (!name || years <= 0) return "0";
     const domain = shortString.encodeShortString(name);
     try {
-      const price: any = await contract.get_domain_price(domain, years);
+      const price: any = await contract.get_domain_price(domain, years, { blockIdentifier: 'latest' });
       if (typeof price === 'bigint') {
         return "0x" + price.toString(16);
       } else if (typeof price === 'string') {
@@ -165,7 +164,7 @@ export function useBns() {
         contractAddress: BNS_CONTRACT_ADDRESS,
         entrypoint: "get_domains_of",
         calldata: [userAddress]
-      });
+      }, 'latest');
       let domainsArray = null;
       if (Array.isArray(result)) {
         domainsArray = result;
@@ -208,7 +207,7 @@ export function useBns() {
   const getDomainInfo = useCallback(async (domainName: string) => {
     try {
       const domain = shortString.encodeShortString(domainName);
-      const result: any = await contract.get_domain_info(domain);
+      const result: any = await contract.get_domain_info(domain, { blockIdentifier: 'latest' });
       
       if (!result) {
         return null;
@@ -307,7 +306,7 @@ export function useBns() {
 
       let isVerified = false;
       try {
-        const verifiedRes: any = await contract.is_verified(domain);
+        const verifiedRes: any = await contract.is_verified(domain, { blockIdentifier: 'latest' });
         isVerified = normalizeBool(verifiedRes);
       } catch { /* ignore */ }
 
@@ -330,47 +329,40 @@ export function useBns() {
     if (!isConnected || !account || !address) throw new Error("Wallet not connected");
 
     const domain = shortString.encodeShortString(name);
-    const priceU256: any = await contract.get_domain_price(domain, years);
+    const priceU256: any = await contract.get_domain_price(domain, years, { blockIdentifier: 'latest' });
     const priceBig = u256ToBigInt(priceU256);
 
     const id = toast.loading("Checking allowance...");
     try {
-      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS);
+      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS, { blockIdentifier: 'latest' });
       const allowanceBig = u256ToBigInt(currentAllowance);
 
-      const { low, high } = bigIntToU256Parts(priceBig);
       const calls: any[] = [];
 
       if (allowanceBig < priceBig) {
         toast.loading("Preparing transaction...", { id });
         if (allowanceBig > BigInt(0)) {
-          calls.push({
-            contractAddress: BROTHER_TOKEN_ADDRESS,
-            entrypoint: "approve",
-            calldata: [BNS_CONTRACT_ADDRESS, "0", "0"],
-          });
+          calls.push(tokenContract.populate("approve", [BNS_CONTRACT_ADDRESS, 0n]));
         }
-        calls.push({
-          contractAddress: BROTHER_TOKEN_ADDRESS,
-          entrypoint: "approve",
-          calldata: [BNS_CONTRACT_ADDRESS, low, high],
-        });
+        calls.push(tokenContract.populate("approve", [BNS_CONTRACT_ADDRESS, priceBig]));
       }
 
-      calls.push({
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "register_domain",
-        calldata: [domain, String(years), address, "0", "0", referrer || "0x0"],
-      });
+      calls.push(contract.populate("register_domain", [
+        domain, 
+        years, 
+        address,
+        false,
+        false
+      ]));
 
       if (records) {
         Object.entries(records).forEach(([key, value]) => {
           if (value) {
-            calls.push({
-              contractAddress: BNS_CONTRACT_ADDRESS,
-              entrypoint: "set_text",
-              calldata: [domain, shortString.encodeShortString(key), shortString.encodeShortString(value)],
-            });
+            calls.push(contract.populate("set_text", [
+              domain, 
+              shortString.encodeShortString(key), 
+              shortString.encodeShortString(value)
+            ]));
           }
         });
       }
@@ -391,15 +383,11 @@ export function useBns() {
     if (!isConnected || !account) throw new Error("Wallet not connected");
     const domain = shortString.encodeShortString(name);
     const tx = await account.execute([
-      {
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "transfer_domain",
-        calldata: [domain, to],
-      },
+      contract.populate("transfer_domain", [domain, to])
     ]);
     await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
     return tx.transaction_hash as string;
-  }, [account, isConnected]);
+  }, [account, isConnected, contract]);
 
   const renewDomain = useCallback(async (name: string, years: number) => {
     if (!name || years <= 0) throw new Error("Invalid input");
@@ -409,13 +397,13 @@ export function useBns() {
     const domainInfo = await getDomainInfo(name);
     if (!domainInfo) throw new Error("Domain not found");
     
-    const priceU256: any = await contract.get_domain_price(domain, years);
+    const priceU256: any = await contract.get_domain_price(domain, years, { blockIdentifier: 'latest' });
     const priceBig = u256ToBigInt(priceU256);
     const renewalPriceBig = priceBig / BigInt(2);
 
     const id = toast.loading("Checking allowance...");
     try {
-      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS);
+      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS, { blockIdentifier: 'latest' });
       const allowanceBig = u256ToBigInt(currentAllowance);
 
       const calls: any[] = [];
@@ -423,25 +411,12 @@ export function useBns() {
       if (allowanceBig < renewalPriceBig) {
         toast.loading("Preparing transaction...", { id });
         if (allowanceBig > BigInt(0)) {
-          calls.push({
-            contractAddress: BROTHER_TOKEN_ADDRESS,
-            entrypoint: "approve",
-            calldata: [BNS_CONTRACT_ADDRESS, "0", "0"],
-          });
+          calls.push(tokenContract.populate("approve", [BNS_CONTRACT_ADDRESS, 0n]));
         }
-        const { low, high } = bigIntToU256Parts(renewalPriceBig);
-        calls.push({
-          contractAddress: BROTHER_TOKEN_ADDRESS,
-          entrypoint: "approve",
-          calldata: [BNS_CONTRACT_ADDRESS, low, high],
-        });
+        calls.push(tokenContract.populate("approve", [BNS_CONTRACT_ADDRESS, renewalPriceBig]));
       }
 
-      calls.push({
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "renew_domain",
-        calldata: [domain, String(years)],
-      });
+      calls.push(contract.populate("renew_domain", [domain, years]));
 
       toast.loading("Renewing domain...", { id });
       const tx = await account.execute(calls);
@@ -468,11 +443,9 @@ export function useBns() {
 
     const id = toast.loading("Updating record...");
     try {
-      const tx = await account.execute([{
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "set_text",
-        calldata: [domain, keyFelt, valueFelt],
-      }]);
+      const tx = await account.execute([
+        contract.populate("set_text", [domain, keyFelt, valueFelt])
+      ]);
       await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
       toast.success("Record updated!", { id });
       return tx.transaction_hash as string;
@@ -486,7 +459,7 @@ export function useBns() {
     try {
       const domain = shortString.encodeShortString(name);
       const keyFelt = shortString.encodeShortString(key);
-      const result: any = await contract.get_text(domain, keyFelt);
+      const result: any = await contract.get_text(domain, keyFelt, { blockIdentifier: 'latest' });
       return shortString.decodeShortString(result);
     } catch (e) {
       // console.error("Error fetching text record:", e);
@@ -497,7 +470,7 @@ export function useBns() {
   const getFullProfile = useCallback(async (name: string) => {
     try {
       const domain = shortString.encodeShortString(name.replace('.real', ''));
-      const result: any = await contract.get_full_profile(domain);
+      const result: any = await contract.get_full_profile(domain, { blockIdentifier: 'latest' });
       
       // Parse result (assuming standard object return from starknet.js for struct)
       // If result is array, manual parsing would be needed. Starknet.js v6 usually handles structs well.
@@ -519,7 +492,7 @@ export function useBns() {
   const getDomainSvg = useCallback(async (name: string) => {
     try {
       const domain = shortString.encodeShortString(name.replace('.real', ''));
-      const result: any = await contract.get_domain_svg(domain);
+      const result: any = await contract.get_domain_svg(domain, { blockIdentifier: 'latest' });
       return result; // Result should be a string (ByteArray decoded)
     } catch (e) {
       console.error("Error fetching SVG:", e);
@@ -529,7 +502,7 @@ export function useBns() {
 
   const getReferralEarnings = useCallback(async (userAddress: string) => {
     try {
-      const result: any = await contract.get_referral_earnings(userAddress);
+      const result: any = await contract.get_referral_earnings(userAddress, { blockIdentifier: 'latest' });
       return u256ToHex(result);
     } catch (e) {
       console.error("Error fetching referral earnings:", e);
@@ -574,7 +547,7 @@ export function useBns() {
 
   const getParamProposalCount = useCallback(async () => {
     try {
-      const count: any = await contract.get_param_proposal_count();
+      const count: any = await contract.get_param_proposal_count({ blockIdentifier: 'latest' });
       return u256ToBigInt(count).toString();
     } catch { return "0"; }
   }, [contract]);
@@ -583,7 +556,7 @@ export function useBns() {
     try {
       const idBig = BigInt(id);
       const { low, high } = bigIntToU256Parts(idBig);
-      const result: any = await contract.get_param_proposal(low, high);
+      const result: any = await contract.get_param_proposal(low, high, { blockIdentifier: 'latest' });
       return {
         paramId: Number(result.param_id),
         value: u256ToBigInt(result.value),
@@ -598,20 +571,84 @@ export function useBns() {
 
   const getBasePrice = useCallback(async () => {
     try {
-      const price: any = await contract.get_base_price();
+      const price: any = await contract.get_base_price({ blockIdentifier: 'latest' });
       return u256ToHex(price);
     } catch { return "0x0"; }
   }, [contract]);
 
   const getTreasury = useCallback(async () => {
     try {
-      const addr: any = await contract.get_treasury();
+      const addr: any = await contract.get_treasury({ blockIdentifier: 'latest' });
       return "0x" + BigInt(addr).toString(16);
     } catch { return "0x0"; }
   }, [contract]);
 
-  return { isAvailable, getPrice, registerDomain, getUserDomains, getDomainInfo, transferDomain, renewDomain, setText, getText, getFullProfile, getDomainSvg, getReferralEarnings, proposeParamChange, confirmParamChange, executeParamChange, getParamProposalCount, getParamProposal, getBasePrice, getTreasury };
+  const getRecentActivity = useCallback(async () => {
+    try {
+      const currentBlock = await provider.getBlockNumber();
+      const fromBlock = Math.max(0, currentBlock - 50000); 
+
+      const keys = [
+         [
+           hash.getSelectorFromName("DomainRegistered"),
+           hash.getSelectorFromName("BidPlaced"),
+           hash.getSelectorFromName("AuctionSettled")
+         ]
+      ];
+
+      const res = await provider.getEvents({
+        address: BNS_CONTRACT_ADDRESS,
+        from_block: { block_number: fromBlock },
+        to_block: "latest",
+        keys,
+        chunk_size: 30
+      });
+
+      const mappedEvents = res.events.map((ev, index) => {
+          const selector = ev.keys[0];
+          let type: 'register' | 'bid' | 'sold' = "register";
+          let domain = "";
+          let price = "- STRK";
+          
+          if (selector === hash.getSelectorFromName("DomainRegistered")) {
+             type = "register";
+             try { domain = shortString.decodeShortString(ev.keys[3]); } catch { domain = "unknown"; }
+             price = domain.length === 4 ? "5 STRK" : "1 STRK";
+          } else if (selector === hash.getSelectorFromName("BidPlaced")) {
+             type = "bid";
+             try { domain = shortString.decodeShortString(ev.keys[1]); } catch { domain = "unknown"; }
+             const amountBigInt = u256ToBigInt({ low: ev.data[0], high: ev.data[1] });
+             const whole = amountBigInt / (BigInt(10) ** BigInt(18));
+             price = `${whole.toString()} STRK`;
+          } else if (selector === hash.getSelectorFromName("AuctionSettled")) {
+             type = "sold";
+             try { domain = shortString.decodeShortString(ev.keys[1]); } catch { domain = "unknown"; }
+             const amountBigInt = u256ToBigInt({ low: ev.data[0], high: ev.data[1] });
+             const whole = amountBigInt / (BigInt(10) ** BigInt(18));
+             price = `${whole.toString()} STRK`;
+          }
+
+          const blocksAgo = currentBlock - ev.block_number;
+          let timeAgo = `${blocksAgo} blocks ago`;
+          if (blocksAgo < 10) timeAgo = "Just now";
+          else if (blocksAgo < 100) timeAgo = "Recently";
+
+          return {
+             id: ev.transaction_hash + index.toString(),
+             type,
+             domain,
+             price,
+             time: timeAgo
+          };
+      });
+
+      return mappedEvents.reverse();
+
+    } catch (e) {
+      console.error("Error fetching recent activity:", e);
+      return [];
+    }
+  }, []);
+
+  return { isAvailable, getPrice, registerDomain, getUserDomains, getDomainInfo, transferDomain, renewDomain, setText, getText, getFullProfile, getDomainSvg, getReferralEarnings, proposeParamChange, confirmParamChange, executeParamChange, getParamProposalCount, getParamProposal, getBasePrice, getTreasury, getRecentActivity };
 }
-
-
-

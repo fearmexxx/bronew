@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useBns } from '../src/hooks/useBns';
 
 interface ActivityEvent {
-    id: number;
+    id: string;
     type: 'register' | 'bid' | 'sold';
     domain: string;
     price: string;
@@ -9,24 +10,38 @@ interface ActivityEvent {
 }
 
 const MOCK_EVENTS: ActivityEvent[] = [
-    { id: 1, type: 'register', domain: 'starknet.real', price: '50 STRK', time: '2m ago' },
-    { id: 2, type: 'bid', domain: 'crypto.real', price: '120 STRK', time: '5m ago' },
-    { id: 3, type: 'register', domain: 'alice.real', price: '10 STRK', time: '12m ago' },
-    { id: 4, type: 'sold', domain: 'btc.real', price: '500 STRK', time: '1h ago' },
-    { id: 5, type: 'register', domain: 'bob.real', price: '5 STRK', time: '1h ago' },
-    { id: 6, type: 'bid', domain: 'nft.real', price: '250 STRK', time: '2h ago' },
+    { id: '1', type: 'register', domain: 'starknet.real', price: '50 STRK', time: '2m ago' },
+    { id: '2', type: 'bid', domain: 'crypto.real', price: '120 STRK', time: '5m ago' },
+    { id: '3', type: 'register', domain: 'alice.real', price: '10 STRK', time: '12m ago' },
+    { id: '4', type: 'sold', domain: 'btc.real', price: '500 STRK', time: '1h ago' },
+    { id: '5', type: 'register', domain: 'bob.real', price: '5 STRK', time: '1h ago' },
+    { id: '6', type: 'bid', domain: 'nft.real', price: '250 STRK', time: '2h ago' },
 ];
 
 const ActivityTicker: React.FC = () => {
     const [events, setEvents] = useState<ActivityEvent[]>(MOCK_EVENTS);
+    const { getRecentActivity } = useBns();
 
-    // In a real implementation, this would fetch from the Indexer
-    // useEffect(() => {
-    //     const fetchEvents = async () => { ... }
-    //     fetchEvents();
-    //     const interval = setInterval(fetchEvents, 30000);
-    //     return () => clearInterval(interval);
-    // }, []);
+    useEffect(() => {
+        let isMounted = true;
+        const fetchEvents = async () => {
+             try {
+                 const newEvents = await getRecentActivity();
+                 if (isMounted && newEvents && newEvents.length > 0) {
+                     setEvents(newEvents as ActivityEvent[]);
+                 }
+             } catch (err) {
+                 console.error("Failed to fetch activity:", err);
+             }
+        };
+        
+        fetchEvents();
+        const interval = setInterval(fetchEvents, 30000);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, [getRecentActivity]);
 
     return (
         <div className="w-full bg-[#161B22]/80 border-y border-white/5 backdrop-blur-sm overflow-hidden py-2">

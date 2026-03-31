@@ -51,7 +51,7 @@ Based on a comparative analysis with ENS (Ethereum Name Service) and Starknet ID
 ## Phase 5: UI/UX Refinement
 **Goal:** Professionalize the "Cyberpunk" aesthetic for mass adoption.
 
-- [ ] **UX: Global Activity Feed**
+- [x] **UX: Global Activity Feed**
     - Task: Show a ticker of "Just Registered" or "High Bid" domains to create liveliness on the landing page.
 - [ ] **UX: Registration Wizard**
     - Task: Simplify the registration modal into a step-by-step wizard: Search -> Select Years -> Add Records (Optional) -> Mint.
