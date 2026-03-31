@@ -6,6 +6,7 @@ import {
   useInjectedConnectors,
   jsonRpcProvider,
   voyager,
+  injected,
 } from "@starknet-react/core";
 import { sepolia } from "@starknet-react/chains";
 import { ArgentMobileConnector } from "starknetkit/argentMobile";
@@ -27,8 +28,13 @@ export const useStarknetInternal = () => {
 export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const chains = [sepolia];
   
-  const { connectors: injected } = useInjectedConnectors({
-    recommended: [argent(), braavos()],
+  const { connectors: injectedConnectors } = useInjectedConnectors({
+    recommended: [
+      argent(), 
+      braavos(), 
+      injected({ id: "xverse" }), 
+      injected({ id: "metamask" })
+    ],
     includeRecommended: "always",
   });
 
@@ -39,7 +45,7 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     },
   });
 
-  const allConnectors = [...injected, mobile as any];
+  const allConnectors = [...injectedConnectors, mobile as any];
 
   return (
     <StarknetConfig

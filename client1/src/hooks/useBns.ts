@@ -60,6 +60,7 @@ const BNS_ABI: Abi = [
     { name: "domain", type: "core::felt252" },
     { name: "key", type: "core::felt252" },
   ], outputs: [{ type: "core::felt252" }], state_mutability: "view" },
+  { type: "function", name: "owner_of", inputs: [{ name: "token_id", type: "core::integer::u256" }], outputs: [{ type: "core::starknet::contract_address::ContractAddress" }], state_mutability: "view" },
 ];
 
 const ERC20_MIN_ABI: Abi = [
@@ -160,11 +161,13 @@ export function useBns() {
   const getUserDomains = useCallback(async (userAddress: string) => {
     if (!userAddress) return [];
     try {
+      // 1. Get raw list from contract index
       const result: any = await provider.callContract({
         contractAddress: BNS_CONTRACT_ADDRESS,
         entrypoint: "get_domains_of",
         calldata: [userAddress]
       }, 'latest');
+      
       let domainsArray = null;
       if (Array.isArray(result)) {
         domainsArray = result;
@@ -173,9 +176,10 @@ export function useBns() {
       } else if (result.data && Array.isArray(result.data)) {
         domainsArray = result.data;
       }
+
       if (domainsArray && Array.isArray(domainsArray)) {
         const seen = new Set<string>();
-        const domains = domainsArray
+        const potentialDomains = domainsArray
           .map((domain: any) => {
             let domainStr = '';
             if (typeof domain === 'string' && domain.startsWith('0x')) {
@@ -194,7 +198,33 @@ export function useBns() {
             seen.add(domain);
             return true;
           });
-        return domains;
+
+        // 2. Secondary Verification: Check actual owner_of for each domain
+        // This handles domains transferred via standard ERC721 methods
+        const verifiedDomains = await Promise.all(
+          potentialDomains.map(async (domainStr) => {
+            try {
+              const details: any = await contract.get_domain_info(domainStr, { blockIdentifier: 'latest' });
+              if (!details || !details.token_id) return null;
+              
+              const owner: any = await contract.owner_of(details.token_id, { blockIdentifier: 'latest' });
+              
+              // Normalize addresses for comparison (0x... with varying leading zeros)
+              const actualOwner = "0x" + BigInt(owner).toString(16).toLowerCase();
+              const expectedOwner = "0x" + BigInt(userAddress).toString(16).toLowerCase();
+              
+              if (actualOwner === expectedOwner) {
+                return domainStr;
+              }
+              return null;
+            } catch (e) {
+              console.error(`Error verifying owner for ${domainStr}:`, e);
+              return null;
+            }
+          })
+        );
+
+        return verifiedDomains.filter((d): d is string => d !== null);
       } else {
         return [];
       }
@@ -202,7 +232,7 @@ export function useBns() {
       console.error('Error fetching user domains:', e);
       return [];
     }
-  }, [provider]);
+  }, [provider, contract]);
 
   const getDomainInfo = useCallback(async (domainName: string) => {
     try {
