@@ -525,18 +525,17 @@ export function useBns() {
   const getFullProfile = useCallback(async (name: string) => {
     try {
       const domain = shortString.encodeShortString(name.replace('.real', ''));
-      const result: any = await contract.get_full_profile(domain, { blockIdentifier: 'latest' });
-      
-      // Parse result (assuming standard object return from starknet.js for struct)
-      // If result is array, manual parsing would be needed. Starknet.js v6 usually handles structs well.
+      const fullProfile: any = await contract.get_full_profile(domain, { blockIdentifier: 'latest' });
+      const nickname = await getText(name, 'nickname');
       
       return {
-        domainDetails: result.domain_details,
-        avatar: shortString.decodeShortString(result.avatar),
-        twitter: shortString.decodeShortString(result.twitter),
-        discord: shortString.decodeShortString(result.discord),
-        url: shortString.decodeShortString(result.url),
-        description: shortString.decodeShortString(result.description),
+        domainDetails: fullProfile.domain_details,
+        avatar: shortString.decodeShortString(fullProfile.avatar),
+        twitter: shortString.decodeShortString(fullProfile.twitter),
+        discord: shortString.decodeShortString(fullProfile.discord),
+        url: shortString.decodeShortString(fullProfile.url),
+        description: shortString.decodeShortString(fullProfile.description),
+        nickname: nickname
       };
     } catch (e) {
       console.error("Error fetching full profile:", e);
