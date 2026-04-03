@@ -84,6 +84,20 @@ export function useBns() {
   const tokenContract = useMemo(() => new Contract(ERC20_MIN_ABI, BROTHER_TOKEN_ADDRESS, provider as RpcProvider), []);
   const { account, address, isConnected } = useAccount();
 
+  // Helper for safe shortString decoding
+  const safeDecode = useCallback((felt: any): string => {
+    if (!felt || felt === '0x0' || felt === 0 || felt === 0n) return "";
+    try {
+      const decoded = shortString.decodeShortString(felt);
+      // Filter out non-printable/weird control characters
+      // Only allow standard ASCII printable range (32 to 126)
+      const clean = decoded.replace(/[^\x20-\x7E]/g, '');
+      return clean;
+    } catch (e) {
+      return "";
+    }
+  }, []);
+
   const normalizeBool = (value: unknown): boolean => {
     if (typeof value === "boolean") return value;
     if (typeof value === "number") return value === 1;
@@ -512,17 +526,14 @@ export function useBns() {
 
   const getText = useCallback(async (name: string, key: string) => {
     try {
-      const domain = shortString.encodeShortString(name);
+      const domain = shortString.encodeShortString(name.replace('.real', ''));
       const keyFelt = shortString.encodeShortString(key);
       const result: any = await contract.get_text(domain, keyFelt, { blockIdentifier: 'latest' });
-      const decoded = shortString.decodeShortString(result);
-      // Basic sanity check: if it looks like garbage (non-printable chars), return empty
-      if (/[\x00-\x1F\x7F-\x9F]/.test(decoded)) return "";
-      return decoded;
+      return safeDecode(result);
     } catch (e) {
       return "";
     }
-  }, [contract]);
+  }, [contract, safeDecode]);
 
   const getFullProfile = useCallback(async (name: string) => {
     try {
@@ -532,24 +543,27 @@ export function useBns() {
       
       return {
         domainDetails: fullProfile.domain_details,
-        avatar: shortString.decodeShortString(fullProfile.avatar),
-        twitter: shortString.decodeShortString(fullProfile.twitter),
-        discord: shortString.decodeShortString(fullProfile.discord),
-        url: shortString.decodeShortString(fullProfile.url),
-        description: shortString.decodeShortString(fullProfile.description),
+        avatar: safeDecode(fullProfile.avatar),
+        twitter: safeDecode(fullProfile.twitter),
+        discord: safeDecode(fullProfile.discord),
+        url: safeDecode(fullProfile.url),
+        description: safeDecode(fullProfile.description),
         nickname: nickname
       };
     } catch (e) {
       console.error("Error fetching full profile:", e);
       return null;
     }
-  }, [contract]);
+  }, [contract, getText, safeDecode]);
 
   const getDomainSvg = useCallback(async (name: string) => {
     try {
-      const domain = shortString.encodeShortString(name.replace('.real', ''));
+      const cleanName = name.replace('.real', '');
+      if (!cleanName || cleanName.length > 31) return null;
+      
+      const domain = shortString.encodeShortString(cleanName);
       const result: any = await contract.get_domain_svg(domain, { blockIdentifier: 'latest' });
-      return result; // Result should be a string (ByteArray decoded)
+      return result; // Result is ByteArray
     } catch (e) {
       console.error("Error fetching SVG:", e);
       return null;
@@ -728,11 +742,11 @@ export function useBns() {
   const getPrimaryDomain = useCallback(async (userAddress: string) => {
     try {
       const result: any = await contract.get_primary_domain(userAddress, { blockIdentifier: 'latest' });
-      return shortString.decodeShortString(result);
+      return safeDecode(result);
     } catch (e) {
       return "";
     }
-  }, [contract]);
+  }, [contract, safeDecode]);
 
   return { isAvailable, getPrice, registerDomain, getUserDomains, getDomainInfo, transferDomain, renewDomain, setText, getText, getFullProfile, getDomainSvg, getReferralEarnings, proposeParamChange, confirmParamChange, executeParamChange, getParamProposalCount, getParamProposal, getBasePrice, getTreasury, getRecentActivity, setPrimaryDomain, getPrimaryDomain };
 }
