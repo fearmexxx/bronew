@@ -17,13 +17,14 @@ const CloseIcon: React.FC<{ className?: string }> = ({ className }) => (
 
 const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onSuccess }) => {
     const { address, isConnected } = useAccount();
-    const { getPrimaryDomain, getFullProfile, setText, setPrimaryDomain, getUserDomains } = useBns();
+    const { getPrimaryDomain, getFullProfile, setText, setPrimaryDomain, getUserDomains, getDomainSvg } = useBns();
     const { fetchUserNfts, isLoading: isLoadingNfts } = useNfts();
     
     const [primaryDomain, setPrimaryDomainName] = useState<string | null>(null);
     const [ownedDomains, setOwnedDomains] = useState<string[]>([]);
     const [nickname, setNickname] = useState('');
-    const [avatar, setAvatar] = useState('');
+    const [avatar, setAvatar] = useState(''); // The preview URL
+    const [avatarValue, setAvatarValue] = useState(''); // The on-chain value (max 31 chars)
     const [nfts, setNfts] = useState<NFTAsset[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -52,7 +53,19 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onSuccess 
                     const profile = await getFullProfile(pd);
                     if (profile) {
                         setNickname(profile.nickname || '');
-                        setAvatar(profile.avatar || '');
+                        const savedAvatar = profile.avatar || '';
+                        setAvatarValue(savedAvatar);
+                        
+                        // If it's a BNS domain name, fetch SVG for preview
+                        if (savedAvatar && !savedAvatar.includes('/') && !savedAvatar.includes(':')) {
+                            const svg = await getDomainSvg(savedAvatar + '.real');
+                            if (svg) {
+                                const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
+                                setAvatar(URL.createObjectURL(svgBlob));
+                            }
+                        } else {
+                            setAvatar(savedAvatar);
+                        }
                     }
                 }
 
@@ -78,8 +91,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onSuccess 
         try {
             // Save Nickname & Avatar as text records
             await setText(primaryDomain, 'nickname', nickname);
-            if (avatar) {
-                await setText(primaryDomain, 'avatar', avatar);
+            if (avatarValue !== undefined) {
+                await setText(primaryDomain, 'avatar', avatarValue);
             }
             toast.success("Profile updated successfully!");
             onSuccess();
@@ -176,15 +189,18 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onSuccess 
                                     {nfts.map((nft, i) => (
                                         <button 
                                             key={i}
-                                            onClick={() => setAvatar(nft.image || '')}
-                                            className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all group ${avatar === nft.image ? 'border-cyan-400 ring-4 ring-cyan-400/20' : 'border-white/5 hover:border-white/20'}`}
+                                            onClick={() => {
+                                                setAvatar(nft.image || '');
+                                                setAvatarValue(nft.value);
+                                            }}
+                                            className={`relative aspect-square rounded-2xl overflow-hidden border-2 transition-all group ${avatarValue === nft.value ? 'border-cyan-400 ring-4 ring-cyan-400/20' : 'border-white/5 hover:border-white/20'}`}
                                         >
                                             {nft.image ? (
                                                 <img src={nft.image} alt={nft.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                             ) : (
                                                 <div className="w-full h-full bg-gray-800 flex items-center justify-center text-xs text-gray-500">No Image</div>
                                             )}
-                                            {avatar === nft.image && (
+                                            {avatarValue === nft.value && (
                                                 <div className="absolute inset-0 bg-cyan-400/20 flex items-center justify-center">
                                                     <div className="bg-cyan-400 rounded-full p-1 shadow-lg shadow-black/50">
                                                         <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>

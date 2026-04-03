@@ -27,6 +27,7 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
         avatar?: string;
         description?: string;
     } | null>(null);
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
     const { getPrimaryDomain, getFullProfile } = useBns();
@@ -57,6 +58,38 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
         fetchProfile();
     }, [fetchProfile]);
 
+    // Handle avatar conversion (BNS name to SVG URL)
+    const { getDomainSvg } = useBns();
+    React.useEffect(() => {
+        const loadAvatar = async () => {
+            const avatar = profile?.avatar;
+            if (!avatar) {
+                setAvatarUrl(null);
+                return;
+            }
+
+            // If it's a full URL or data URI, use it directly
+            if (avatar.includes('/') || avatar.includes(':')) {
+                setAvatarUrl(avatar);
+            } else {
+                // Assume it's a BNS domain name (max 31 chars)
+                try {
+                    const svg = await getDomainSvg(avatar + '.real');
+                    if (svg) {
+                        const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
+                        setAvatarUrl(URL.createObjectURL(svgBlob));
+                    } else {
+                        setAvatarUrl(null);
+                    }
+                } catch (e) {
+                    console.error("Error loading BNS avatar:", e);
+                    setAvatarUrl(null);
+                }
+            }
+        };
+        loadAvatar();
+    }, [profile?.avatar, getDomainSvg]);
+
     if (!walletAddress) {
         return (
             <div className="w-full max-w-4xl mx-auto p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl bg-[#161B22]/50 backdrop-blur-sm gradient-border animate-fade-in text-center">
@@ -70,17 +103,19 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
         <div className="w-full max-w-4xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8 rounded-2xl sm:rounded-3xl bg-[#161B22]/50 backdrop-blur-sm gradient-border animate-fade-in">
             <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-full bg-[#0D1117] flex items-center justify-center border-2 border-gray-700 flex-shrink-0 overflow-hidden shadow-xl shadow-black/40">
-                    {profile?.avatar ? (
-                        <img src={profile.avatar} alt="Profile Avatar" className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
+                    {avatarUrl ? (
+                        <img src={avatarUrl} alt="Profile Avatar" className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
                     ) : (
                         <UserIcon className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 text-gray-500" />
                     )}
                 </div>
                 <div className="flex-grow w-full sm:w-auto">
                     <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white font-mono break-all px-2 sm:px-0">
-                        {profile?.nickname || (walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : '')}
+                        {profile?.nickname && profile.nickname.trim() !== "" 
+                            ? profile.nickname 
+                            : (walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : '')}
                     </h1>
-                    {profile?.nickname && (
+                    {profile?.nickname && profile.nickname.trim() !== "" && (
                         <p className="text-xs text-cyan-400 mt-1 font-mono uppercase tracking-widest">{`${walletAddress?.slice(0, 6)}...${walletAddress?.slice(-4)}`}</p>
                     )}
                     <p className="text-gray-400 mt-2 text-sm sm:text-base px-4 sm:px-0">

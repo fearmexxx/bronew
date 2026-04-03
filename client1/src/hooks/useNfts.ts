@@ -8,6 +8,7 @@ export interface NFTAsset {
   tokenId: string;
   name: string;
   image?: string;
+  value: string; // The value to store on-chain (max 31 chars)
   isBns?: boolean;
 }
 
@@ -31,7 +32,8 @@ export function useNfts() {
           if (!nameFelt) continue;
           
           const asHex = nameFelt.startsWith('0x') ? nameFelt : '0x' + BigInt(nameFelt).toString(16);
-          const name = shortString.decodeShortString(asHex) + '.real';
+          const nameOnly = shortString.decodeShortString(asHex);
+          const name = nameOnly + '.real';
           
           // For BNS domains, use the on-chain SVG as the image
           const svg = await getDomainSvg(name);
@@ -39,10 +41,11 @@ export function useNfts() {
           const url = URL.createObjectURL(svgBlob);
 
           assets.push({
-            contractAddress: "BNS", // Placeholder for BNS contract
+            contractAddress: "BNS", 
             tokenId: nameFelt,
             name: name,
             image: url,
+            value: nameOnly, // Store the name without .real to save space
             isBns: true
           });
         } catch (e) {

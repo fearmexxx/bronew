@@ -515,9 +515,11 @@ export function useBns() {
       const domain = shortString.encodeShortString(name);
       const keyFelt = shortString.encodeShortString(key);
       const result: any = await contract.get_text(domain, keyFelt, { blockIdentifier: 'latest' });
-      return shortString.decodeShortString(result);
+      const decoded = shortString.decodeShortString(result);
+      // Basic sanity check: if it looks like garbage (non-printable chars), return empty
+      if (/[\x00-\x1F\x7F-\x9F]/.test(decoded)) return "";
+      return decoded;
     } catch (e) {
-      // console.error("Error fetching text record:", e);
       return "";
     }
   }, [contract]);
