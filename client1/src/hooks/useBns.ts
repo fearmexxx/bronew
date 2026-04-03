@@ -36,7 +36,8 @@ const BNS_ABI: Abi = [
     { name: "years", type: "core::integer::u8" },
     { name: "resolver", type: "core::starknet::contract_address::ContractAddress" },
     { name: "has_strkdomain", type: "core::bool" },
-    { name: "has_brother_domain", type: "core::bool" }
+    { name: "has_brother_domain", type: "core::bool" },
+    { name: "referrer", type: "core::starknet::contract_address::ContractAddress" }
   ], outputs: [], state_mutability: "external" },
   { type: "function", name: "get_referral_earnings", inputs: [{ name: "address", type: "core::starknet::contract_address::ContractAddress" }], outputs: [{ type: "core::integer::u256" }], state_mutability: "view" },
   { type: "function", name: "propose_param_change", inputs: [{ name: "param_id", type: "core::integer::u8" }, { name: "value", type: "core::integer::u256" }], outputs: [], state_mutability: "external" },
@@ -208,15 +209,18 @@ export function useBns() {
         const verifiedDomains = await Promise.all(
           potentialDomains.map(async (domainStr) => {
             try {
-              const details = await getDomainInfo(domainStr);
+              // domainStr is a decimal bigint string of the felt252 — decode it to a human-readable name
+              const asHex = '0x' + BigInt(domainStr).toString(16);
+              const humanName = shortString.decodeShortString(asHex);
+              const details = await getDomainInfo(humanName);
               if (!details || !details.resolver) return null;
               
-              // Normalize addresses for comparison
-              const actualOwner = details.resolver.toLowerCase();
-              const expectedOwner = "0x" + BigInt(userAddress).toString(16).toLowerCase();
+              // Normalize addresses for comparison (zero-pad to 64 hex chars)
+              const actualOwner = details.resolver.toLowerCase().replace(/^0x0*/, '0x').padStart(66, '0');
+              const expectedOwner = ("0x" + BigInt(userAddress).toString(16)).padStart(66, '0');
               
               if (actualOwner === expectedOwner) {
-                return domainStr;
+                return domainStr; // Return original format (DomainList decodes this)
               }
               return null;
             } catch (e) {
@@ -225,6 +229,7 @@ export function useBns() {
             }
           })
         );
+
 
         return verifiedDomains.filter((d): d is string => d !== null);
       } else {
@@ -401,7 +406,8 @@ export function useBns() {
         years, 
         address,
         false,
-        false
+        false,
+        "0x0"  // referrer: no referrer by default
       ]));
 
       if (records) {

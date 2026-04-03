@@ -1,7 +1,7 @@
 # Brother ID (BNS) Features Summary
 
 **Project:** Brother Naming Service
-**Version:** 0.8.0
+**Version:** 0.9.0
 
 ## 🎨 User Experience (UX)
 
@@ -35,8 +35,14 @@
 - **Verification**: Built-in system for verified domain statuses.
 - **Full Profiles**: Single-call retrieval of domain metadata and text records.
 
+### 4. Protocol V3 (New)
+- **Upgradeable Architecture**: Native Cairo v2 proxy pattern with logic/state separation.
+- **Dynamic Pricing**: Enhanced price tiers for different domain lengths.
+- **Referral System**: Built-in support for referrer-based discounts/incentives.
+
 ## 🛠️ Technical Specs
 - **Network**: Sepolia Testnet.
+- **Proxy Address**: `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`
 - **Provider**: Alchemy RPC with `latest` blockID persistence.
-- **SDK**: Starknet.js v6 + Starknet-React.
+- **SDK**: Starknet.js v8 + Starknet-React.
 - **Contracts**: Cairo v2 (Upgradable).

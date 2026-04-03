@@ -9,7 +9,7 @@ const NODE_URL = (import.meta as any).env?.VITE_STARKNET_RPC || "https://starkne
 export const provider = new RpcProvider({ nodeUrl: NODE_URL });
 
 export const BNS_CONTRACT_ADDRESS =
-  "0x1031fbbf843f059e8c6c923a472458eb4384513c5fd087ca5054a56f4d9cf41";
+  "0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371";
 export const BROTHER_TOKEN_ADDRESS = STRK_TOKEN_ADDRESS;
 
 export const ERC20Abi: Abi = [];

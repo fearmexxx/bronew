@@ -1,4 +1,5 @@
 use starknet::ContractAddress;
+use starknet::ClassHash;
 // Removed deprecated contract_address_const import
 
 // Payment token dispatcher is now provided via contract storage/constructor (see module below)
@@ -135,6 +136,9 @@ pub trait IBrotherNamingService<TContractState> {
     
     // Referral functions
     fn get_referral_earnings(self: @TContractState, address: ContractAddress) -> u256;
+    
+    // Initializer (for upgrades)
+    fn initialize(ref self: TContractState, name: ByteArray, symbol: ByteArray, base_price: u256, treasury: ContractAddress, payment_token: ContractAddress);
 }
 
 #[starknet::contract]
@@ -154,6 +158,8 @@ mod BrotherNamingService {
     };
     use core::num::traits::Zero;
     use core::byte_array::ByteArray;
+    use starknet::ClassHash;
+    use starknet::syscalls::replace_class_syscall;
 
     const GRACE_PERIOD: u64 = 7776000; // 90 days in seconds
 
@@ -185,11 +191,11 @@ mod BrotherNamingService {
     #[storage]
     struct Storage {
         #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
         erc721: ERC721Component::Storage,
         #[substorage(v0)]
         src5: SRC5Component::Storage,
-        #[substorage(v0)]
-        ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         reentrancy_guard: ReentrancyGuardComponent::Storage,
         
@@ -1467,6 +1473,20 @@ mod BrotherNamingService {
             self._refundable.read(user)
         }
 
+
+        fn initialize(ref self: ContractState, name: ByteArray, symbol: ByteArray, base_price: u256, treasury: ContractAddress, payment_token: ContractAddress) {
+            self.ownable.assert_only_owner();
+            // ERC721 initialization
+            self.erc721.initializer(name, symbol, ""); // empty base_uri for now
+            
+            // BNS specific initialization
+            self._base_price.write(base_price);
+            self._treasury_addr.write(treasury);
+            self._is_mint_active.write(true);
+            self._total_supply.write(0);
+            self._payment_token_addr.write(payment_token);
+        }
+
         fn get_active_auction_domains(self: @ContractState) -> Array<felt252> {
             let count = self._active_auction_count.read();
             let mut res = ArrayTrait::new();
@@ -1750,4 +1770,21 @@ mod BrotherNamingService {
 
     // Use empty ERC721 hooks implementation
     impl ERC721HooksImpl = ERC721HooksEmptyImpl<ContractState>;
+
+    #[abi(embed_v0)]
+    impl UpgradeableImpl of crate::proxy::IUpgradeableContract<ContractState> {
+        fn upgrade_to(ref self: ContractState, new_class_hash: ClassHash) {
+            self.ownable.assert_only_owner();
+            replace_class_syscall(new_class_hash).unwrap();
+        }
+
+        fn get_admin(self: @ContractState) -> ContractAddress {
+            self.ownable.owner()
+        }
+
+        fn change_admin(ref self: ContractState, new_admin: ContractAddress) {
+            self.ownable.assert_only_owner();
+            self.ownable.transfer_ownership(new_admin);
+        }
+    }
 }

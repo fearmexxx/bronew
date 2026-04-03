@@ -193,7 +193,28 @@ export function useAuction() {
     }
   }, [account, isConnected, contract]);
 
+  const cancelAuction = useCallback(async (domainName: string) => {
+    if (!domainName || !contract || !isConnected || !account) {
+      throw new Error("Invalid input or wallet not connected");
+    }
+    const domain = shortString.encodeShortString(domainName.replace('.real', ''));
+    const id = toast.loading("Cancelling auction...");
+    try {
+      const tx = await account.execute([
+        contract.populate("cancel_auction", [domain])
+      ]);
+      await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
+      toast.success("Auction cancelled!", { id });
+      return tx.transaction_hash as string;
+    } catch (e: any) {
+      toast.error(e?.message ?? "Transaction failed", { id });
+      throw e;
+    }
+  }, [account, isConnected, contract]);
+
+
   const getAuctionDetails = useCallback(async (domainName: string) => {
+
     if (!domainName || !contract) {
       console.error("getAuctionDetails: Invalid input or contract not available", { domainName, contract: !!contract });
       throw new Error("Invalid input or contract not available");
@@ -362,6 +383,7 @@ export function useAuction() {
     }
   }, [contract]);
 
-  return { createAuction, placeBid, withdraw, settle, getAuctionDetails, fetchActiveAuctionDomains };
+  return { createAuction, cancelAuction, placeBid, withdraw, settle, getAuctionDetails, fetchActiveAuctionDomains };
 }
+
 

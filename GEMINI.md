@@ -74,14 +74,16 @@
 
 - **Network:** Sepolia Testnet (Alchemy v0_10 endpoint synced).
 - **Phase 1-4 Complete:** Text Records, Grace Period, Verification, Metadata, Infrastructure.
+- **V3 Deployment Complete**: Native Cairo v2 Upgradable Proxy deployed at `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`.
 - **UI Refinement Complete**: Registration Wizard and Wallet Modal overhauled.
+- **Frontend Sync**: All `client1` constants updated to point to the V3 Proxy.
 - **Stabilization:** Explicit `blockIdentifier: 'latest'` overrides and on-chain ownership verification implemented.
-- **Next Steps:** Deploy contract upgrade to activate new referrer and pricing features (V3).
 
 ## 5. Revision Log
 
 | Date | Version | Notes |
 | :--- | :--- | :--- |
+| **Apr 3, 2026** | **0.9.0** | **V3 Upgrade & Frontend Sync.** Deployed upgradeable proxy contract. Updated frontend to point to the new proxy address. Verified `is_mint_active` on-chain. |
 | **Jan 19, 2026** | **0.8.0** | Overhauled Registration Wizard and Wallet Modal UI. Implemented on-chain `owner_of` verification for domain lists. Added Xverse/MetaMask support. |
 | **Jan 19, 2026** | **0.7.0** | Fixed Alchemy RPC "Invalid block id" error with universal `latest` blockID overrides. Updated `StarknetProvider`. |
 | **Jan 19, 2026** | **0.6.0** | Consolidated all changes. Reset git history for fresh repository state. |

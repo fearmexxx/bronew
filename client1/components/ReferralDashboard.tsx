@@ -36,6 +36,12 @@ const ReferralDashboard: React.FC = () => {
         toast.success('Referral link copied!');
     };
 
+    const shareOnX = () => {
+        const text = encodeURIComponent('Claim your REAL ID now 🚀\n\n');
+        const url = encodeURIComponent(referralLink);
+        window.open(`https://x.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'noopener,noreferrer');
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header Cards */}
@@ -72,6 +78,16 @@ const ReferralDashboard: React.FC = () => {
                         className="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-bold text-white transition-all btn-hover-effect whitespace-nowrap disabled:opacity-50"
                     >
                         Copy Link
+                    </button>
+                    <button
+                        onClick={shareOnX}
+                        disabled={!referralLink}
+                        className="px-6 py-3 bg-black hover:bg-gray-900 border border-white/20 rounded-xl font-bold text-white transition-all btn-hover-effect whitespace-nowrap disabled:opacity-50 flex items-center gap-2"
+                    >
+                        <svg viewBox="0 0 24 24" aria-hidden="true" className="w-4 h-4 fill-current">
+                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                        </svg>
+                        Share on X
                     </button>
                 </div>
             </div>
