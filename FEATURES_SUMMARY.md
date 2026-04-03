@@ -1,56 +1,42 @@
-# Brother ID Features & Functions Summary
+# Brother ID (BNS) Features Summary
 
-This document serves as a "Quick Load" cheat sheet for the **Brother ID (BNS)** project. It details the current logic, contract interfaces, and architecture for both the frontend and smart contracts.
+**Project:** Brother Naming Service
+**Version:** 0.8.0
 
-## 1. Technical Core (Starknet)
-- **Network**: Sepolia Testnet
-- **RPC Hub**: Alchemy (Direct v0_10 Endpoint)
-- **Contract Address**: `0x1031fbbf843f059e8c6c923a472458eb4384513c5fd087ca5054a56f4d9cf41`
-- **Library Version**: `starknet.js` v6
+## 🎨 User Experience (UX)
 
-## 2. Smart Contract Logic (`contracts/brotherdomain`)
-The contract uses a **Proxy Pattern** for upgradeability.
+### 1. Registration Wizard (Overhauled)
+- **4-Step Centered Flow**: A modern, focused wizard for registration.
+  - **Step 1**: Search & Duration (with concurrent price fetching).
+  - **Step 2**: Primary Domain Toggle & Referral Code.
+  - **Step 3**: Profile Records (Avatar, Twitter, Discord).
+  - **Step 4**: Minting Call & Tracking.
+- **Glassmorphism Theme**: Cyberpunk-inspired dark mode with custom CSS animations.
 
-### 2.1 Core Functions (`register_domain`)
-- **Signature (Current V2)**: `register_domain(domain, years, resolver, has_strkdomain, has_brother_domain)`
-- **Arguments**:
-  - `domain`: `felt252` (ShortString encoded)
-  - `years`: `u8` (1-3)
-  - `resolver`: `ContractAddress` (Target address)
-  - `has_strkdomain`: `bool` (Discount check)
-  - `has_brother_domain`: `bool` (Discount check)
+### 2. Wallet Connection (Premium)
+- **Categorized Hub**: Grouped wallets: **Ready** (Primary), **Continue with** (Mobile/Controller), **More Wallets**.
+- **Xverse & MetaMask Support**: Native support for Xverse and MetaMask on Starknet.
+- **Recently Used Badge**: Memory-aware UI that highlights your preferred wallet.
+- **Smart Redirection**: Guides users to the correct download page if a wallet isn't detected.
 
-### 2.2 Domain Properties
-- **Grace Period**: 90 days. During this time, the domain is expired but only the original owner can renew it.
-- **Pricing**: Length-based. 4-letter domains are 5 STRK, others are 1 STRK (Current testnet config).
-- **Text Records**: Arbitrary keys like `avatar`, `twitter`, `discord`, `description`.
+## 🔗 Protocol & Functionality
 
-### 2.3 View Functions
-- `is_domain_available(domain)`: Returns availability status (accounts for grace period).
-- `get_domain_info(domain)`: Returns full domain metadata (owner, expiry, etc.).
-- `get_domains_of(address)`: Returns all domains owned by an address.
-- `get_full_profile(domain)`: Returns profile struct with all text records in one call.
-- `get_domain_svg(domain)`: Generates on-chain NFT metadata.
+### 1. Domain Lifecycle
+- **Registration**: 1-3 year periods with dynamic pricing based on length.
+- **Grace Period**: 90-day protection for owners to renew before public burn.
+- **Metadata**: On-chain SVG generation for NFTs.
 
-## 3. Frontend Architecture (`client1`)
-- **Theme**: Cyberpunk / Dark Mode / Glassmorphism.
-- **State**: React Hooks + Context.
+### 2. Auction House
+- **Native Marketplace**: List, bid, and settle auctions directly within the BNS contract.
+- **Ownership Sync**: Real-time on-chain `owner_of` verification for high-fidelity profile lists.
 
-### 3.1 Hooks
-- **`useBns.ts`**: Handles all BNS interactions. 
-  > [!IMPORTANT]
-  > All `view` calls explicitly use `{ blockIdentifier: 'latest' }` to bypassed Alchemy's `pending` block restriction.
-- **`useAuction.ts`**: Handles the internal Auction House (Bid, List, Settle).
+### 3. Identity & Records
+- **Text Records**: Domain-linked storage for Avatars, Socials, and Descriptions.
+- **Verification**: Built-in system for verified domain statuses.
+- **Full Profiles**: Single-call retrieval of domain metadata and text records.
 
-### 3.2 Components
-- **`SearchBox`**: Real-time availability check + suggestions.
-- **`ActivityTicker`**: Live on-chain event feed (polling via `getEvents`).
-- **`Profile`**: Multi-tab dashboard for managing identities and viewing history.
-
-## 4. Development Workflow
-- **Run Dev**: `npm run dev` (in `client1`)
-- **Build**: `npm run build`
-- **Contract Upgrade**: `npm run upgrade:contract` (in `contracts/brotherdomain`)
-
----
-**Current Version**: 0.7.0 (Alchemy Compatible)
+## 🛠️ Technical Specs
+- **Network**: Sepolia Testnet.
+- **Provider**: Alchemy RPC with `latest` blockID persistence.
+- **SDK**: Starknet.js v6 + Starknet-React.
+- **Contracts**: Cairo v2 (Upgradable).

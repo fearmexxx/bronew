@@ -112,11 +112,12 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
 
     const connectWallet = async (connector: Connector) => {
         if (isConnecting) return;
-        
-        // Check if wallet is available/ready
-        const isReady = await connector.ready();
-        
-        if (!isReady) {
+
+        // Check if wallet is available (installed in browser)
+        const isAvailable = connector.available();
+
+        if (!isAvailable) {
+            toast(`Redirecting to download ${connector.name}...`, { icon: '📥' });
             window.open(getInstallUrl(connector.id), '_blank', 'noopener,noreferrer');
             return;
         }
