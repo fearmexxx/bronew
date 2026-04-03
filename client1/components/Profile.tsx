@@ -7,6 +7,7 @@ import Governance from './Governance';
 import EditProfileModal from './EditProfileModal';
 import { useBns } from '../src/hooks/useBns';
 import { useAccount } from '@starknet-react/core';
+import { generateGeneratedAvatar } from '../src/utils/avatar';
 
 const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-16 w-16 text-gray-500"} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -68,8 +69,10 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
                 return;
             }
 
-            // If it's a full URL or data URI, use it directly
-            if (avatar.includes('/') || avatar.includes(':')) {
+            // Handle different avatar types
+            if (avatar.startsWith('gen:')) {
+                setAvatarUrl(generateGeneratedAvatar(avatar));
+            } else if (avatar.includes('/') || avatar.includes(':')) {
                 setAvatarUrl(avatar);
             } else {
                 // Assume it's a BNS domain name (max 31 chars)

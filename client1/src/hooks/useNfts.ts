@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useAccount } from "@starknet-react/core";
 import { shortString } from "starknet";
 import { useBns } from "./useBns";
+import { generateGeneratedAvatar } from "../utils/avatar";
 
 export interface NFTAsset {
   contractAddress: string;
@@ -10,6 +11,7 @@ export interface NFTAsset {
   image?: string;
   value: string; // The value to store on-chain (max 31 chars)
   isBns?: boolean;
+  isGenerated?: boolean;
 }
 
 export function useNfts() {
@@ -53,9 +55,18 @@ export function useNfts() {
         }
       }
 
-      // 2. Fetch External NFTs (Placeholder for production indexer)
-      // Note: In a real production app, we would use Alchemy's getNFTs or Voyager API here.
-      // For now, we only show BNS domains as they are reliably available on-chain.
+      // 2. Inject Generated Random Avatars (Fallback)
+      for (let i = 0; i < 4; i++) {
+        const seed = `gen:${address.slice(-6)}_${i}`;
+        assets.push({
+          contractAddress: "GENERATED",
+          tokenId: String(i),
+          name: `Generated #${i + 1}`,
+          image: generateGeneratedAvatar(seed),
+          value: seed,
+          isGenerated: true
+        });
+      }
       
       return assets;
     } catch (e) {

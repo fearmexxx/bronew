@@ -3,6 +3,7 @@ import { useAccount } from '@starknet-react/core';
 import { useBns } from '../src/hooks/useBns';
 import { useNfts, NFTAsset } from '../src/hooks/useNfts';
 import { toast } from 'react-hot-toast';
+import { generateGeneratedAvatar } from '../src/utils/avatar';
 
 interface EditProfileModalProps {
     onClose: () => void;
@@ -56,8 +57,11 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ onClose, onSuccess 
                         const savedAvatar = profile.avatar || '';
                         setAvatarValue(savedAvatar);
                         
-                        // If it's a BNS domain name, fetch SVG for preview
-                        if (savedAvatar && !savedAvatar.includes('/') && !savedAvatar.includes(':')) {
+                        // Handle different avatar types
+                        if (savedAvatar.startsWith('gen:')) {
+                            setAvatar(generateGeneratedAvatar(savedAvatar));
+                        } else if (savedAvatar && !savedAvatar.includes('/') && !savedAvatar.includes(':')) {
+                            // BNS domain name
                             const svg = await getDomainSvg(savedAvatar + '.real');
                             if (svg) {
                                 const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
