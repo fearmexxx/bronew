@@ -3,6 +3,7 @@ import Header from './components/Header';
 import SearchBox from './components/SearchBox';
 import FooterBanner from './components/FooterBanner';
 import Profile from './components/Profile';
+import Pricing from './components/Pricing';
 import WalletModal from './components/WalletModal';
 import ActivityTicker from './components/ActivityTicker';
 import { useAccount, useDisconnect } from '@starknet-react/core';
@@ -36,7 +37,7 @@ const Hero: React.FC = () => (
 
 
 const App: React.FC = () => {
-    const [currentView, setCurrentView] = useState('search');
+    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'pricing'>('search');
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
     const { address, isConnected } = useAccount();
     const { disconnect } = useDisconnect();
@@ -75,6 +76,9 @@ const App: React.FC = () => {
                     <div className="w-full max-w-7xl px-4 pt-10">
                         <Profile walletAddress={isConnected ? address ?? null : null} />
                     </div>
+                )}
+                {currentView === 'pricing' && (
+                    <Pricing onRegisterClick={() => setCurrentView('search')} />
                 )}
             </main>
 

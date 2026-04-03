@@ -6,7 +6,11 @@
 
 ## 1. Core Naming Service (BNS)
 - **Domain Registration:** Register `.real` identities for 1, 2, or 3 years.
-- **Dynamic Pricing:** Length-based pricing (shorter domains = higher cost). Current base price: 1 STRK/year.
+- **Pricing Plans:** 
+  - 1 Year: $5 (STRK/BROTHER)
+  - 2 Years: $8 (Save 20%)
+  - 3 Years: $12 (Save 20%)
+- **Dynamic Pricing:** Length-based pricing remains active for 4-character domains. Current base price: 1 STRK/year for standard names.
 - **Resolution:**
   - `resolve_domain`: Look up Starknet address by name.
   - `reverse_resolve`: Look up name by Starknet address.
@@ -26,6 +30,8 @@
 ## 3. Profile & Identity Management
 - **Dashboard:** Unified view of all owned domains and active auction listings.
 - **Text Records:** Store arbitrary text data (Avatar, Twitter, Discord, GitHub, Description) on-chain for each domain.
+- **Edit Profile:** Centralized dashboard to manage nickname and avatar preferences.
+- **Generated Avatars:** Procedural canvas-based avatars for users without external NFTs, ensuring unique identities for all.
 - **Identity Details:** View creation date, expiry date, and current resolver directly in the management modal.
 - **Transfer:** Securely send domains to other Starknet addresses.
 
@@ -51,6 +57,8 @@
 | Text Records | ✅ Fixed | Auth issues resolved; records update correctly. |
 | Domain Details | ✅ Fixed | Double-encoding bug resolved; info loads instantly. |
 | Profile Sync | ✅ Fixed | Address padding and name decoding bugs resolved. |
+| Edit Profile | ✅ Complete | Nickname and Generated Avatars implemented with safe decoding. |
+| Pricing Page | ✅ Complete | New $5/$8/$12 USD-indexed plan live in Header navigation. |
 | Mainnet Prep | 🔄 Pending | Final audit and deployment script setup. |
 
 ---

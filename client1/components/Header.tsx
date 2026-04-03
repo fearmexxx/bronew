@@ -25,7 +25,7 @@ const ChevronDownIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 interface HeaderProps {
-    setCurrentView: (view: 'search' | 'profile') => void;
+    setCurrentView: (view: 'search' | 'profile' | 'pricing') => void;
     walletAddress: string | null;
     onConnect: () => void;
     onDisconnect: () => void;
@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ setCurrentView, walletAddress, onConnec
                     {/* Desktop Navigation - Simpler, cleaner text */}
                     <div className="hidden md:flex items-center gap-8 ml-4">
                         <button onClick={() => setCurrentView('search')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Features</button>
-                        <button onClick={() => setCurrentView('search')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Pricing</button>
+                        <button onClick={() => setCurrentView('pricing')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Pricing</button>
                     </div>
                 </div>
 
