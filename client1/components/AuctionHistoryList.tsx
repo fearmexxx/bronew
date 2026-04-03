@@ -32,15 +32,17 @@ const AuctionHistoryList: React.FC = () => {
     const { getAuctionDetails, fetchActiveAuctionDomains } = useAuction();
     const { getUserDomains } = useBns();
 
-    const normalizeAddress = (addr: string) => {
+    const normalizeAddress = (addr: any) => {
         try {
-            if (!addr || addr === '0x0') return '0x0';
-            const clean = addr.toLowerCase().replace('0x', '');
+            if (!addr || addr === '0x0' || addr === 0 || addr === 0n) return '0x0';
+            const strAddr = typeof addr === 'string' ? addr : ('0x' + BigInt(addr).toString(16));
+            const clean = strAddr.toLowerCase().replace('0x', '');
             return '0x' + clean.padStart(64, '0');
         } catch {
-            return addr.toLowerCase();
+            return String(addr).toLowerCase();
         }
     };
+
 
     const fetchAuctionHistory = useCallback(async () => {
         if (!isConnected || !address) {
