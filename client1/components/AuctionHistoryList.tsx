@@ -9,8 +9,10 @@ type HistoryItem = {
     domain: string;
     status: 'Won' | 'Lost' | 'Bidding' | 'Sold' | 'Listed';
     amount: number;
+    reserve: number;
     date: string;
     isSeller?: boolean;
+    hasBids: boolean;
 };
 
 const StatusBadge: React.FC<{ status: HistoryItem['status'] }> = ({ status }) => {
@@ -43,7 +45,6 @@ const AuctionHistoryList: React.FC = () => {
         }
     };
 
-
     const fetchAuctionHistory = useCallback(async () => {
         if (!isConnected || !address) {
             setHistory([]);
@@ -65,7 +66,6 @@ const AuctionHistoryList: React.FC = () => {
             const ownedNames: string[] = [];
             for (const domainData of userDomains) {
                 try {
-                    // Check if domainData is the hex-encoded name directly or an object
                     const nameFelt = typeof domainData === 'string' ? domainData : (domainData as any).nameFelt;
                     if (!nameFelt) continue;
                     
@@ -76,11 +76,9 @@ const AuctionHistoryList: React.FC = () => {
 
             // Source 2: globally active auction domains (catches escrowed NFTs)
             const activeDomains = await fetchActiveAuctionDomains();
-            console.log("Active Auction Domains found:", activeDomains);
 
             // Merge both sources, deduplicated
             const allDomains = [...new Set([...ownedNames, ...activeDomains])];
-            console.log("Merged candidate domains for history:", allDomains);
 
             for (const domainName of allDomains) {
                 if (seen.has(domainName)) continue;
@@ -103,6 +101,7 @@ const AuctionHistoryList: React.FC = () => {
                     if (!isSeller && !isBidder) continue;
 
                     const amount = Number(auctionDetails.highestBid) / 1e18;
+                    const reserve = Number(auctionDetails.reserve) / 1e18;
                     const endTime = new Date(auctionDetails.endsAt * 1000);
                     const now = new Date();
 
@@ -127,17 +126,18 @@ const AuctionHistoryList: React.FC = () => {
                         domain: domainName,
                         status,
                         amount,
+                        reserve,
                         date: auctionDetails.active
                             ? `Ends ${endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
                             : endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                         isSeller,
+                        hasBids: auctionDetails.highestBid > BigInt(0),
                     });
                 } catch (err) { 
                     console.error(`Error processing history for ${domainName}:`, err);
                 }
             }
 
-            // Sort: Active (Listed/Bidding) first, then by date (not implemented in date string yet, so just leave as is)
             const sortedHistory = historyItems.sort((a, b) => {
                 const priority = { 'Listed': 0, 'Bidding': 0, 'Won': 1, 'Sold': 1, 'Lost': 2 };
                 return priority[a.status] - priority[b.status];
@@ -150,7 +150,6 @@ const AuctionHistoryList: React.FC = () => {
             setIsLoading(false);
         }
     }, [address, isConnected, getAuctionDetails, getUserDomains, fetchActiveAuctionDomains]);
-
 
 
     useEffect(() => {
@@ -177,8 +176,18 @@ const AuctionHistoryList: React.FC = () => {
                         {item.isSeller && <p className="text-xs text-cyan-400 mt-1">You are the seller</p>}
                     </div>
                     <div className="flex-grow sm:text-center min-w-0">
-                        <p className="font-semibold text-sm sm:text-base md:text-lg text-white break-words">{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} STRK</p>
-                        <p className="text-xs sm:text-sm text-gray-400">{item.status === 'Lost' || item.status === 'Sold' ? 'Final Bid' : item.status === 'Won' ? 'Winning Bid' : 'Current Bid'}</p>
+                        <p className="font-semibold text-sm sm:text-base md:text-lg text-white break-words">
+                            {item.hasBids 
+                                ? item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                : item.reserve.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                            } STRK
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-400">
+                            {item.hasBids 
+                                ? (item.status === 'Lost' || item.status === 'Sold' ? 'Final Bid' : item.status === 'Won' ? 'Winning Bid' : 'Current Bid')
+                                : 'Reserve Price'
+                            }
+                        </p>
                     </div>
                     <div className="w-full sm:w-auto sm:text-right">
                         <StatusBadge status={item.status} />
