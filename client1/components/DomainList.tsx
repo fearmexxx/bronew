@@ -142,18 +142,21 @@ const DomainList: React.FC = () => {
                     return null;
                 }
 
+                const isAuctioned = auctionedDomains.has(label.toLowerCase());
+
                 return {
                     id: idx + 1,
                     name: `${label}.real`,
                     expires: expiresDisplay,
                     creationDate: '-',
-                    registrar: '-',
+                    registrar: isAuctioned ? 'Auction' : '-',
                     metadata: {},
                     feltStr: feltStr,
                     isGracePeriod,
                     gracePeriodEnds,
                     isVerified
                 } as OwnedDomain & { feltStr: string };
+
             }));
             
             const owned = ownedResults.filter((domain): domain is OwnedDomain & { feltStr: string } => domain !== null);

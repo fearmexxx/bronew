@@ -69,25 +69,30 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
         (async () => {
             try {
                 const label = domain.name.replace('.real','');
-                const felt = shortString.encodeShortString(label);
-                const info = await getDomainInfo(String(felt));
+                // Pass plain label; getDomainInfo handles encoding
+                const info = await getDomainInfo(label);
                 if (info) {
                     if (info.expiryDate) {
                         const d = new Date(info.expiryDate * 1000);
                         if (!isNaN(d.getTime())) setExpiryText(d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
                     }
-                    if (info.resolver) setResolver(info.resolver);
+                    if (info.resolver) {
+                        // Normalize resolver address display
+                        const addr = info.resolver.toLowerCase();
+                        setResolver(addr.startsWith('0x') ? addr : '0x' + BigInt(addr).toString(16));
+                    }
                     const lt = (info as any).lastTransferTime;
                     if (lt) {
                         const cd = new Date(lt * 1000);
                         if (!isNaN(cd.getTime())) setCreationText(cd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
                     }
                 }
-            } catch {
-                /* ignore */
+            } catch (e) {
+                console.error("Error loading domain details in modal:", e);
             }
         })();
     }, [domain.name, getDomainInfo]);
+
 
     // Fetch primary domain status
     useEffect(() => {
@@ -133,6 +138,13 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
             setRecords(prev => ({ ...prev, [key]: value }));
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    const copyResolver = () => {
+        if (resolver && resolver !== '-') {
+            navigator.clipboard.writeText(resolver);
+            // toast already imported through bns hook
         }
     };
 
@@ -196,6 +208,12 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
 
     const renderRecordsView = () => (
         <div className="space-y-4">
+            {/* Warning if in auction */}
+            {domain.registrar === 'Auction' && (
+                <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-lg text-amber-400 text-xs mb-4">
+                    <strong>Note:</strong> Domain is currently listed for auction. Record updates may be restricted until the auction is settled or cancelled.
+                </div>
+            )}
             {loadingRecords ? (
                 <div className="text-center text-gray-400 py-4">Loading records...</div>
             ) : (
@@ -243,7 +261,17 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
                 <RegistrarIcon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 mt-0.5" />
                 <div className="ml-3 sm:ml-4 min-w-0 flex-1">
                     <p className="text-gray-400 mb-1">Resolver</p>
-                    <p className="text-white font-semibold break-all">{resolver}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-white font-semibold break-all text-xs sm:text-sm">{resolver}</p>
+                        {resolver !== '-' && (
+                            <button onClick={copyResolver} className="p-1 hover:bg-white/10 rounded">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4 text-cyan-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
