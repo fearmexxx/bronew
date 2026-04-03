@@ -7,7 +7,7 @@ import { shortString } from 'starknet';
 type HistoryItem = {
     id: number;
     domain: string;
-    status: 'Won' | 'Lost' | 'Bidding' | 'Sold';
+    status: 'Won' | 'Lost' | 'Bidding' | 'Sold' | 'Listed';
     amount: number;
     date: string;
     isSeller?: boolean;
@@ -20,6 +20,7 @@ const StatusBadge: React.FC<{ status: HistoryItem['status'] }> = ({ status }) =>
         'Lost': 'bg-red-500/20 text-red-400',
         'Bidding': 'bg-cyan-500/20 text-cyan-400',
         'Sold': 'bg-blue-500/20 text-blue-400',
+        'Listed': 'bg-amber-500/20 text-amber-400',
     };
     return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
 };
@@ -28,7 +29,7 @@ const AuctionHistoryList: React.FC = () => {
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { address, isConnected } = useAccount();
-    const { getAuctionDetails } = useAuction();
+    const { getAuctionDetails, fetchActiveAuctionDomains } = useAuction();
     const { getUserDomains } = useBns();
 
     const fetchAuctionHistory = useCallback(async () => {
@@ -40,45 +41,73 @@ const AuctionHistoryList: React.FC = () => {
 
         setIsLoading(true);
         try {
+            const seen = new Set<string>();
             const historyItems: HistoryItem[] = [];
             let id = 1;
 
+            // Source 1: domains still owned by the user
             const userDomains = await getUserDomains(address);
-            
+            const ownedNames: string[] = [];
             for (const domainFelt of userDomains) {
                 try {
-                    let domainName = '';
-                    try {
-                        const asHex = '0x' + BigInt(domainFelt).toString(16);
-                        domainName = shortString.decodeShortString(asHex) + '.real';
-                    } catch {
-                        continue;
-                    }
+                    const asHex = '0x' + BigInt(domainFelt).toString(16);
+                    ownedNames.push(shortString.decodeShortString(asHex) + '.real');
+                } catch { /* skip */ }
+            }
 
+            // Source 2: globally active auction domains (catches escrowed NFTs not in getUserDomains)
+            const activeDomains = await fetchActiveAuctionDomains();
+
+            // Merge both sources, deduplicated
+            const allDomains = [...new Set([...ownedNames, ...activeDomains])];
+
+            for (const domainName of allDomains) {
+                if (seen.has(domainName)) continue;
+                seen.add(domainName);
+                try {
                     const auctionDetails = await getAuctionDetails(domainName);
-                    if (auctionDetails) {
-                        const amount = Number(auctionDetails.highestBid) / 1e18;
-                        const endTime = new Date(auctionDetails.endsAt * 1000);
-                        const now = new Date();
-                        
-                        let status: HistoryItem['status'] = 'Bidding';
-                        if (!auctionDetails.active) {
-                            status = auctionDetails.highestBidder.toLowerCase() === address.toLowerCase() ? 'Won' : 'Sold';
-                        } else if (now > endTime) {
-                            status = 'Bidding';
-                        }
+                    if (!auctionDetails) continue;
 
-                        historyItems.push({
-                            id: id++,
-                            domain: domainName,
-                            status: status,
-                            amount: amount,
-                            date: auctionDetails.active ? 'Active' : endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                            isSeller: auctionDetails.seller.toLowerCase() === address.toLowerCase(),
-                        });
+                    // Skip if the auction is completely inactive AND no bid was placed
+                    if (!auctionDetails.active && auctionDetails.highestBid === BigInt(0)) continue;
+
+                    const isSeller = auctionDetails.seller.toLowerCase() === address.toLowerCase();
+                    const isBidder = auctionDetails.highestBidder !== '0x0' &&
+                        auctionDetails.highestBidder.toLowerCase() === address.toLowerCase();
+                    
+                    // Only show if user is seller OR user is/was highest bidder
+                    if (!isSeller && !isBidder) continue;
+
+                    const amount = Number(auctionDetails.highestBid) / 1e18;
+                    const endTime = new Date(auctionDetails.endsAt * 1000);
+                    const now = new Date();
+
+                    let status: HistoryItem['status'];
+                    if (auctionDetails.active && now < endTime) {
+                        status = isSeller ? 'Listed' : 'Bidding';
+                    } else if (!auctionDetails.active) {
+                        if (isBidder) {
+                            status = 'Won';
+                        } else if (isSeller) {
+                            status = 'Sold';
+                        } else {
+                            status = 'Lost';
+                        }
+                    } else {
+                        status = 'Bidding';
                     }
-                } catch (e) {
-                }
+
+                    historyItems.push({
+                        id: id++,
+                        domain: domainName,
+                        status,
+                        amount,
+                        date: auctionDetails.active
+                            ? `Ends ${endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                            : endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                        isSeller,
+                    });
+                } catch { /* skip individual domain errors */ }
             }
 
             setHistory(historyItems);
@@ -87,7 +116,8 @@ const AuctionHistoryList: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [address, isConnected, getAuctionDetails, getUserDomains]);
+    }, [address, isConnected, getAuctionDetails, getUserDomains, fetchActiveAuctionDomains]);
+
 
     useEffect(() => {
         fetchAuctionHistory();
