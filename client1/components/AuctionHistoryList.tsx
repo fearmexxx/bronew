@@ -32,6 +32,16 @@ const AuctionHistoryList: React.FC = () => {
     const { getAuctionDetails, fetchActiveAuctionDomains } = useAuction();
     const { getUserDomains } = useBns();
 
+    const normalizeAddress = (addr: string) => {
+        try {
+            if (!addr || addr === '0x0') return '0x0';
+            const clean = addr.toLowerCase().replace('0x', '');
+            return '0x' + clean.padStart(64, '0');
+        } catch {
+            return addr.toLowerCase();
+        }
+    };
+
     const fetchAuctionHistory = useCallback(async () => {
         if (!isConnected || !address) {
             setHistory([]);
@@ -41,39 +51,51 @@ const AuctionHistoryList: React.FC = () => {
 
         setIsLoading(true);
         try {
+            const userAddrNormalized = normalizeAddress(address);
             const seen = new Set<string>();
             const historyItems: HistoryItem[] = [];
-            let id = 1;
+            let nextId = 1;
+
+            console.log("Fetching Auction History for:", userAddrNormalized);
 
             // Source 1: domains still owned by the user
             const userDomains = await getUserDomains(address);
             const ownedNames: string[] = [];
-            for (const domainFelt of userDomains) {
+            for (const domainData of userDomains) {
                 try {
-                    const asHex = '0x' + BigInt(domainFelt).toString(16);
+                    // Check if domainData is the hex-encoded name directly or an object
+                    const nameFelt = typeof domainData === 'string' ? domainData : (domainData as any).nameFelt;
+                    if (!nameFelt) continue;
+                    
+                    const asHex = nameFelt.startsWith('0x') ? nameFelt : '0x' + BigInt(nameFelt).toString(16);
                     ownedNames.push(shortString.decodeShortString(asHex) + '.real');
                 } catch { /* skip */ }
             }
 
-            // Source 2: globally active auction domains (catches escrowed NFTs not in getUserDomains)
+            // Source 2: globally active auction domains (catches escrowed NFTs)
             const activeDomains = await fetchActiveAuctionDomains();
+            console.log("Active Auction Domains found:", activeDomains);
 
             // Merge both sources, deduplicated
             const allDomains = [...new Set([...ownedNames, ...activeDomains])];
+            console.log("Merged candidate domains for history:", allDomains);
 
             for (const domainName of allDomains) {
                 if (seen.has(domainName)) continue;
                 seen.add(domainName);
+                
                 try {
                     const auctionDetails = await getAuctionDetails(domainName);
                     if (!auctionDetails) continue;
 
-                    // Skip if the auction is completely inactive AND no bid was placed
+                    // Skip if the auction is completely inactive AND no bid was ever placed
                     if (!auctionDetails.active && auctionDetails.highestBid === BigInt(0)) continue;
 
-                    const isSeller = auctionDetails.seller.toLowerCase() === address.toLowerCase();
-                    const isBidder = auctionDetails.highestBidder !== '0x0' &&
-                        auctionDetails.highestBidder.toLowerCase() === address.toLowerCase();
+                    const sellerNormalized = normalizeAddress(auctionDetails.seller);
+                    const bidderNormalized = normalizeAddress(auctionDetails.highestBidder);
+
+                    const isSeller = sellerNormalized === userAddrNormalized;
+                    const isBidder = bidderNormalized === userAddrNormalized && auctionDetails.highestBid > BigInt(0);
                     
                     // Only show if user is seller OR user is/was highest bidder
                     if (!isSeller && !isBidder) continue;
@@ -94,11 +116,12 @@ const AuctionHistoryList: React.FC = () => {
                             status = 'Lost';
                         }
                     } else {
-                        status = 'Bidding';
+                        // Auction ended but not settled
+                        status = isSeller ? 'Sold' : (isBidder ? 'Won' : 'Lost');
                     }
 
                     historyItems.push({
-                        id: id++,
+                        id: nextId++,
                         domain: domainName,
                         status,
                         amount,
@@ -107,16 +130,25 @@ const AuctionHistoryList: React.FC = () => {
                             : endTime.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                         isSeller,
                     });
-                } catch { /* skip individual domain errors */ }
+                } catch (err) { 
+                    console.error(`Error processing history for ${domainName}:`, err);
+                }
             }
 
-            setHistory(historyItems);
+            // Sort: Active (Listed/Bidding) first, then by date (not implemented in date string yet, so just leave as is)
+            const sortedHistory = historyItems.sort((a, b) => {
+                const priority = { 'Listed': 0, 'Bidding': 0, 'Won': 1, 'Sold': 1, 'Lost': 2 };
+                return priority[a.status] - priority[b.status];
+            });
+
+            setHistory(sortedHistory);
         } catch (e) {
             console.error("Failed to fetch auction history:", e);
         } finally {
             setIsLoading(false);
         }
     }, [address, isConnected, getAuctionDetails, getUserDomains, fetchActiveAuctionDomains]);
+
 
 
     useEffect(() => {
