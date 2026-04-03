@@ -1,5 +1,32 @@
 # Progress Log: Brother ID (BNS)
 
+## Session: April 4, 2026
+**Objective:** V3 Stabilization & UX Fixes
+**Revision:** 0.9.1
+
+### Achievements:
+1.  **V3 Protocol Fixes**: 
+    - Resolved `ENTRYPOINT_FAILED` during registration by adding the missing `referrer` param to the ABI.
+    - Fixed the `payment_token` on the live proxy; re-initialized it with the correct **STRK** address (`0x0471...`).
+2.  **Profile & Search Optimization**:
+    - Fixed a critical "double-encoding" bug in `useBns.ts` and `ManageDomainModal.tsx` that was preventing domain details from loading.
+    - Implemented address normalization (zero-padding) to ensure owned domains appear correctly in the user profile.
+3.  **UI Enhancements**:
+    - **Cancel Auction**: Added a context-aware toggle in the domain list. Sellers can now cancel active auctions and withdraw escrowed NFTs.
+    - **Auction History**: Fixed the filtering logic to show both owned domains and active auction listings where the user is the seller/bidder.
+    - **Referrals**: Integrated a **"Share on X"** feature with custom tweet intents.
+4.  **Documentation**:
+    - Created a consolidated `features.md` to track all project capabilities.
+    - Updated `GEMINI.md` and `PROGRESS_LOG.md` for project memory.
+5.  **GitHub**:
+    - Pushed all stabilization fixes to the `main` branch.
+
+### Next Steps:
+- Perform final stress-testing of the auction house settlement logic.
+- Plan for the transition from Sepolia to Mainnet.
+
+---
+
 ## Session: April 3, 2026
 **Objective:** Wallet Bug Fix & Synchronization
 

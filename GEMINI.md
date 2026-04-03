@@ -1,7 +1,7 @@
 # Brother ID Project Memo
 
-**Last Updated:** January 19, 2026
-**Revision:** 0.8.0 - UI Overhaul & Ownership Verification Fix
+**Last Updated:** April 4, 2026
+**Revision:** 0.9.1 - V3 Stabilization & UX Fixes
 
 ## 1. Executive Summary
 **Brother ID** (Brother Naming Service - BNS) is a decentralized identity provider built on **Starknet**. It enables users to register, manage, and auction human-readable identities (ending in `.real`) mapped to blockchain addresses. The project consists of a React-based frontend (`client1`) and Cairo v2 smart contracts (`contracts`).
@@ -51,7 +51,7 @@
 - **Availability:** Checked against contract `is_domain_available`. Now accounts for Grace Period.
 - **Pricing:** Dynamic based on length (shorter = more expensive).
 - **Discounts:** One-time discounts available for users holding specific related assets/domains.
-- **Payment:** Paid in `BROTHER` tokens (or configured payment token).
+- **Payment:** Paid in `STRK` tokens (or configured payment token).
 
 ### 3.2 Auctions
 - **Listing:** Domain owners can list domains for auction with a reserve price and duration.
@@ -83,6 +83,7 @@
 
 | Date | Version | Notes |
 | :--- | :--- | :--- |
+| **Apr 4, 2026** | **0.9.1** | **V3 Stabilization & UX Fixes.** Fixed STRK payment token initialization on proxy. Resolved double-encoding bugs in profile and manage modals. Added "Cancel Auction" and "Share on X" functionality. |
 | **Apr 3, 2026** | **0.9.0** | **V3 Upgrade & Frontend Sync.** Deployed upgradeable proxy contract. Updated frontend to point to the new proxy address. Verified `is_mint_active` on-chain. |
 | **Jan 19, 2026** | **0.8.0** | Overhauled Registration Wizard and Wallet Modal UI. Implemented on-chain `owner_of` verification for domain lists. Added Xverse/MetaMask support. |
 | **Jan 19, 2026** | **0.7.0** | Fixed Alchemy RPC "Invalid block id" error with universal `latest` blockID overrides. Updated `StarknetProvider`. |
