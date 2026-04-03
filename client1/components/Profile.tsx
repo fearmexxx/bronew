@@ -31,6 +31,17 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // Garbage filter for direct UI safety
+    const filterGarbage = (val: string | undefined): string => {
+        if (!val) return "";
+        const clean = val.trim();
+        const lower = clean.toLowerCase();
+        // Catch short fragments and long all-caps hex artifacts
+        if (lower === "il" || lower === "ih" || lower === "aa" || lower === "aaa") return "";
+        if (clean.length >= 3 && /^[A-Z0-9]+$/.test(clean)) return "";
+        return clean;
+    };
+
     const { getPrimaryDomain, getFullProfile } = useBns();
     const { address, isConnected } = useAccount();
 
@@ -40,14 +51,14 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
         try {
             const pd = await getPrimaryDomain(walletAddress);
             setPrimaryDomain(pd);
-            if (pd) {
-                const data = await getFullProfile(pd);
-                setProfile({
-                    nickname: data?.nickname,
-                    avatar: data?.avatar,
-                    description: data?.description
-                });
-            }
+        if (pd) {
+            const data = await getFullProfile(pd);
+            setProfile({
+                nickname: filterGarbage(data?.nickname),
+                avatar: data?.avatar,
+                description: filterGarbage(data?.description)
+            });
+        }
         } catch (e) {
             console.error("Profile fetch error:", e);
         } finally {
@@ -107,7 +118,12 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
             <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 rounded-full bg-[#0D1117] flex items-center justify-center border-2 border-gray-700 flex-shrink-0 overflow-hidden shadow-xl shadow-black/40">
                     {avatarUrl ? (
-                        <img src={avatarUrl} alt="Profile Avatar" className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" />
+                        <img 
+                            src={avatarUrl} 
+                            alt="Profile Avatar" 
+                            className="w-full h-full object-cover transition-transform duration-500 hover:scale-110" 
+                            onError={() => setAvatarUrl(null)}
+                        />
                     ) : (
                         <UserIcon className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 text-gray-500" />
                     )}

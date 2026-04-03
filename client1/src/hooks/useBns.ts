@@ -90,8 +90,27 @@ export function useBns() {
     try {
       const decoded = shortString.decodeShortString(felt);
       // Filter out non-printable/weird control characters
-      // Only allow standard ASCII printable range (32 to 126)
-      const clean = decoded.replace(/[^\x20-\x7E]/g, '');
+      const clean = decoded.replace(/[^\x20-\x7E]/g, '').trim();
+      
+      // Strict artifact check: Corrupted URLs often turn into random string fragments
+      const lower = clean.toLowerCase();
+      if (lower === "il" || lower === "ih" || lower === "aa" || lower === "aaa") {
+        console.log("SafeDecode identified short artifact:", clean);
+        return "";
+      }
+      
+      // if it's 3+ chars and ONLY uppercase letters (A-Z), it is almost certainly a corrupted FELT shard
+      if (clean.length >= 3 && /^[A-Z]+$/.test(clean)) {
+        console.log("SafeDecode identified long artifact:", clean);
+        return "";
+      }
+      
+      // If it looks like a hex string that was partially decoded (lots of V, X, A, N, etc)
+      if (clean.length > 5 && /^[A-Z0-9]+$/.test(clean)) {
+        console.log("SafeDecode identified hex artifact:", clean);
+        return "";
+      }
+
       return clean;
     } catch (e) {
       return "";
