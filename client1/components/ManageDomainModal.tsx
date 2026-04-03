@@ -41,11 +41,12 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
     const [isClosing, setIsClosing] = useState(false);
     const [toAddress, setToAddress] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { transferDomain, getDomainInfo, setText, getText } = useBns();
-    const { isConnected } = useAccount();
+    const { transferDomain, getDomainInfo, setText, getText, getPrimaryDomain, setPrimaryDomain } = useBns();
+    const { isConnected, address } = useAccount();
     const [resolver, setResolver] = useState<string>('-');
     const [expiryText, setExpiryText] = useState<string>('-');
     const [creationText, setCreationText] = useState<string>('-');
+    const [isPrimary, setIsPrimary] = useState(false);
 
     // Records State
     const [records, setRecords] = useState({
@@ -71,16 +72,14 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
                 const felt = shortString.encodeShortString(label);
                 const info = await getDomainInfo(String(felt));
                 if (info) {
-                    const raw = info.expiryDate as unknown as string | undefined;
-                    if (raw) {
-                        const d = new Date(Number(BigInt(raw)) * 1000);
+                    if (info.expiryDate) {
+                        const d = new Date(info.expiryDate * 1000);
                         if (!isNaN(d.getTime())) setExpiryText(d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
                     }
-                    const res = info.resolver as unknown as string;
-                    if (res) setResolver(res);
-                    const lt = (info as any).last_transfer_time as string | undefined;
+                    if (info.resolver) setResolver(info.resolver);
+                    const lt = (info as any).lastTransferTime;
                     if (lt) {
-                        const cd = new Date(Number(BigInt(lt)) * 1000);
+                        const cd = new Date(lt * 1000);
                         if (!isNaN(cd.getTime())) setCreationText(cd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
                     }
                 }
@@ -89,6 +88,20 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
             }
         })();
     }, [domain.name, getDomainInfo]);
+
+    // Fetch primary domain status
+    useEffect(() => {
+        if (isConnected && address) {
+            (async () => {
+                try {
+                    const primary = await getPrimaryDomain(address);
+                    setIsPrimary(primary === domain.name.replace('.real', ''));
+                } catch {
+                    // ignore
+                }
+            })();
+        }
+    }, [isConnected, domain.name, address, getPrimaryDomain]);
 
     // Fetch records when entering records view
     useEffect(() => {
@@ -135,11 +148,27 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
                     <p className="text-xs sm:text-sm text-cyan-400">Manage avatar, socials, and description</p>
                 </div>
             </div>
-             <div className="bg-[#0D1117]/50 p-3 sm:p-4 rounded-lg flex items-center opacity-60 cursor-not-allowed">
+             <div 
+                className={`bg-[#0D1117]/50 p-3 sm:p-4 rounded-lg flex items-center transition-colors ${isPrimary ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-[#0D1117]'}`}
+                onClick={async () => {
+                    if (isPrimary) return;
+                    setIsSubmitting(true);
+                    try {
+                        await setPrimaryDomain(domain.name.replace('.real', ''));
+                        setIsPrimary(true);
+                    } catch {
+                        // ignore
+                    } finally {
+                        setIsSubmitting(false);
+                    }
+                }}
+             >
                 <RedirectIcon className="h-5 w-5 sm:h-6 sm:w-6 mr-3 sm:mr-4 flex-shrink-0" />
                 <div className="min-w-0">
-                    <h3 className="font-semibold text-white text-sm sm:text-base">Set Redirects</h3>
-                    <p className="text-xs sm:text-sm text-gray-500">Coming Soon</p>
+                    <h3 className="font-semibold text-white text-sm sm:text-base">Set Primary Domain</h3>
+                    <p className={`text-xs sm:text-sm ${isPrimary ? 'text-[#00f2a1]' : 'text-cyan-400'}`}>
+                        {isPrimary ? 'Current Primary Domain' : 'Point this domain to your address'}
+                    </p>
                 </div>
             </div>
             <div 

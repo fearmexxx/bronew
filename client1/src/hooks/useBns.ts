@@ -61,6 +61,10 @@ const BNS_ABI: Abi = [
     { name: "key", type: "core::felt252" },
   ], outputs: [{ type: "core::felt252" }], state_mutability: "view" },
   { type: "function", name: "owner_of", inputs: [{ name: "token_id", type: "core::integer::u256" }], outputs: [{ type: "core::starknet::contract_address::ContractAddress" }], state_mutability: "view" },
+  { type: "function", name: "set_primary_domain", inputs: [{ name: "domain", type: "core::felt252" }], outputs: [], state_mutability: "external" },
+  { type: "function", name: "get_primary_domain", inputs: [{ name: "address", type: "core::starknet::contract_address::ContractAddress" }], outputs: [{ type: "core::felt252" }], state_mutability: "view" },
+  { type: "function", name: "transfer_domain", inputs: [{ name: "domain", type: "core::felt252" }, { name: "to", type: "core::starknet::contract_address::ContractAddress" }], outputs: [], state_mutability: "external" },
+  { type: "function", name: "renew_domain", inputs: [{ name: "domain", type: "core::felt252" }, { name: "years", type: "core::integer::u8" }], outputs: [], state_mutability: "external" },
 ];
 
 const ERC20_MIN_ABI: Abi = [
@@ -199,18 +203,16 @@ export function useBns() {
             return true;
           });
 
-        // 2. Secondary Verification: Check actual owner_of for each domain
-        // This handles domains transferred via standard ERC721 methods
+        // 2. Secondary Verification: Check actual resolver/owner for each domain
+        // This handles cases where contract index is outdated or V2 transfer_domain didn't sync ERC721
         const verifiedDomains = await Promise.all(
           potentialDomains.map(async (domainStr) => {
             try {
-              const details: any = await contract.get_domain_info(domainStr, { blockIdentifier: 'latest' });
-              if (!details || !details.token_id) return null;
+              const details = await getDomainInfo(domainStr);
+              if (!details || !details.resolver) return null;
               
-              const owner: any = await contract.owner_of(details.token_id, { blockIdentifier: 'latest' });
-              
-              // Normalize addresses for comparison (0x... with varying leading zeros)
-              const actualOwner = "0x" + BigInt(owner).toString(16).toLowerCase();
+              // Normalize addresses for comparison
+              const actualOwner = details.resolver.toLowerCase();
               const expectedOwner = "0x" + BigInt(userAddress).toString(16).toLowerCase();
               
               if (actualOwner === expectedOwner) {
@@ -334,6 +336,22 @@ export function useBns() {
       const GRACE_PERIOD = 7776000; // 90 days
       const isGracePeriod = expiryNum > 0 && now > expiryNum && now <= (expiryNum + GRACE_PERIOD);
 
+      let lastTransferNum = 0;
+      try {
+        if (typeof lastTransferTime === 'bigint') {
+           lastTransferNum = Number(lastTransferTime);
+        } else if (typeof lastTransferTime === 'string') {
+           lastTransferNum = Number(BigInt(lastTransferTime));
+        } else if (typeof lastTransferTime === 'number') {
+           lastTransferNum = lastTransferTime;
+        } else if (lastTransferTime && typeof lastTransferTime === 'object') {
+           const low = (lastTransferTime as any).low ?? (lastTransferTime as any).value ?? 0;
+           lastTransferNum = Number(BigInt(low));
+        }
+      } catch {
+         lastTransferNum = 0;
+      }
+
       let isVerified = false;
       try {
         const verifiedRes: any = await contract.is_verified(domain, { blockIdentifier: 'latest' });
@@ -344,6 +362,7 @@ export function useBns() {
         resolver: resolverAddr,
         tokenId: tokenIdHex,
         expiryDate: expiryNum > 0 ? expiryNum : undefined,
+        lastTransferTime: lastTransferNum > 0 ? lastTransferNum : undefined,
         isGracePeriod,
         gracePeriodEnds: expiryNum > 0 ? expiryNum + GRACE_PERIOD : undefined,
         isVerified,
@@ -680,5 +699,33 @@ export function useBns() {
     }
   }, []);
 
-  return { isAvailable, getPrice, registerDomain, getUserDomains, getDomainInfo, transferDomain, renewDomain, setText, getText, getFullProfile, getDomainSvg, getReferralEarnings, proposeParamChange, confirmParamChange, executeParamChange, getParamProposalCount, getParamProposal, getBasePrice, getTreasury, getRecentActivity };
+  const setPrimaryDomain = useCallback(async (name: string) => {
+    if (!name) throw new Error("Invalid input");
+    if (!isConnected || !account) throw new Error("Wallet not connected");
+
+    const domain = shortString.encodeShortString(name);
+    const id = toast.loading("Setting primary domain...");
+    try {
+      const tx = await account.execute([
+        contract.populate("set_primary_domain", [domain])
+      ]);
+      await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
+      toast.success("Primary domain set!", { id });
+      return tx.transaction_hash as string;
+    } catch (e: any) {
+      toast.error(e?.message ?? "Update failed", { id });
+      throw e;
+    }
+  }, [account, isConnected, contract]);
+
+  const getPrimaryDomain = useCallback(async (userAddress: string) => {
+    try {
+      const result: any = await contract.get_primary_domain(userAddress, { blockIdentifier: 'latest' });
+      return shortString.decodeShortString(result);
+    } catch (e) {
+      return "";
+    }
+  }, [contract]);
+
+  return { isAvailable, getPrice, registerDomain, getUserDomains, getDomainInfo, transferDomain, renewDomain, setText, getText, getFullProfile, getDomainSvg, getReferralEarnings, proposeParamChange, confirmParamChange, executeParamChange, getParamProposalCount, getParamProposal, getBasePrice, getTreasury, getRecentActivity, setPrimaryDomain, getPrimaryDomain };
 }
