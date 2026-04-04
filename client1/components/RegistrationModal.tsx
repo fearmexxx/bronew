@@ -37,9 +37,10 @@ const CheckIcon: React.FC<{ className?: string }> = ({ className }) => (
 interface RegistrationModalProps {
     domainName: string;
     onClose: () => void;
+    onViewProfile?: () => void;
 }
 
-const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClose }) => {
+const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClose, onViewProfile }) => {
     const [step, setStep] = useState(1); // 1: Period, 2: Profile, 3: Review, 4: Success
     const [selectedYears, setSelectedYears] = useState(1);
     const [isClosing, setIsClosing] = useState(false);
@@ -159,10 +160,16 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                                 }</span>
                             </div>
                             <div className="text-right">
-                                <span className={`text-xl font-display font-bold ${selectedYears === period.years ? 'text-[#00c6ff]' : 'text-white'}`}>
-                                    {yearPrices[period.years] ? formatSTRK(yearPrices[period.years]) : '...'}
-                                </span>
-                                <span className="ml-1 text-xs text-gray-400 font-bold">STRK</span>
+                                {yearPrices[period.years] ? (
+                                    <>
+                                        <span className={`text-xl font-display font-bold ${selectedYears === period.years ? 'text-[#00c6ff]' : 'text-white'}`}>
+                                            {formatSTRK(yearPrices[period.years])}
+                                        </span>
+                                        <span className="ml-1 text-xs text-gray-400 font-bold">STRK</span>
+                                    </>
+                                ) : (
+                                    <div className="h-6 w-20 bg-white/10 animate-pulse rounded-md ml-auto"></div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -196,7 +203,9 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                         <div key={key} className="space-y-1.5">
                             <div className="flex justify-between">
                                 <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest">{key}</label>
-                                <span className="text-[10px] text-gray-600">{value.length}/31</span>
+                                <span className={`text-[10px] font-bold ${value.length >= 30 ? 'text-red-500' : value.length >= 25 ? 'text-amber-500' : 'text-gray-600'}`}>
+                                    {value.length}/31
+                                </span>
                             </div>
                             <div className="relative group">
                                 <input 
@@ -248,7 +257,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
 
                 <div className="flex justify-between items-center group">
                     <span className="text-gray-400 text-sm font-medium">Domain Name</span>
-                    <span className="text-white font-display font-bold text-lg tracking-wide">@{domainName.replace('.real', '')}</span>
+                    <span className="text-white font-display font-bold text-lg tracking-wide">{domainName.replace('.real', '')}<span className="text-gray-500">.real</span></span>
                 </div>
                 <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm font-medium">Registration</span>
@@ -299,8 +308,8 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                            {domainName.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                             <p className="text-lg font-display font-bold text-white tracking-tight">@{domainName.replace('.real', '')}</p>
-                             <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Minted Successfully</p>
+                             <p className="text-lg font-display font-bold text-white tracking-tight">{domainName.replace('.real', '')}<span className="text-gray-500 text-sm">.real</span></p>
+                             <p className="text-[10px] text-[#00f2a1] uppercase tracking-widest font-black">Minted Successfully</p>
                         </div>
                     </div>
                 </div>
@@ -319,10 +328,13 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                     Explorer
                 </a>
                  <button 
-                    onClick={handleClose}
+                    onClick={() => {
+                        if (onViewProfile) onViewProfile();
+                        handleClose();
+                    }}
                     className="w-full py-3.5 rounded-xl bg-gradient-to-r from-[#00f2a1] to-[#00c6ff] text-black font-black transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-[#00c6ff]/20 uppercase tracking-widest text-xs"
                 >
-                    View My Profile
+                    View My Identities
                 </button>
             </div>
         </div>
@@ -354,6 +366,14 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                                 {step === 4 ? 'Complete' : `Step ${step} of 3`}
                             </div>
                         </div>
+                        {step < 4 && (
+                            <div className="mt-2 text-xs font-bold text-[#00c6ff] flex items-center gap-1.5 opacity-80 decoration-[#00c6ff]/30 underline underline-offset-4">
+                                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {domainName.toLowerCase().replace('.real', '')}.real
+                            </div>
+                        )}
                     </div>
                     {step < 4 && (
                         <button onClick={handleClose} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all border border-white/5 group">
@@ -386,11 +406,12 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                 {step < 4 && (
                     <div className="mt-2 flex flex-col sm:flex-row gap-3 relative z-10">
                          {step < 3 ? (
-                            <button 
+                             <button 
                                 onClick={nextStep} 
-                                className="w-full py-4 rounded-2xl bg-white text-black font-black hover:bg-gray-100 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl uppercase tracking-widest text-xs"
+                                disabled={step === 1 && !isConnected}
+                                className="w-full py-4 rounded-2xl bg-white text-black font-black hover:bg-gray-100 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl uppercase tracking-widest text-xs disabled:opacity-30 disabled:cursor-not-allowed"
                             >
-                                Continue to {step === 1 ? 'Profile' : 'Review'}
+                                {!isConnected && step === 1 ? 'Connect Wallet to Continue' : `Continue to ${step === 1 ? 'Profile' : 'Review'}`}
                             </button>
                         ) : (
                             <button 

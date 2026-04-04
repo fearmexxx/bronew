@@ -68,7 +68,7 @@ const App: React.FC = () => {
                             <ActivityTicker />
                         </div>
                         <div className="w-full max-w-4xl px-4 z-20 mt-4 sm:mt-8">
-                            <SearchBox />
+                            <SearchBox onViewProfile={() => setCurrentView('profile')} />
                         </div>
                     </>
                 )}

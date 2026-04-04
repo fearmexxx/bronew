@@ -7,7 +7,7 @@ import { shortString } from 'starknet';
 type HistoryItem = {
     id: number;
     domain: string;
-    status: 'Won' | 'Lost' | 'Bidding' | 'Sold' | 'Listed';
+    status: 'Won' | 'Lost' | 'Bidding' | 'Sold' | 'Listed' | 'Returned';
     amount: number;
     reserve: number;
     date: string;
@@ -17,14 +17,15 @@ type HistoryItem = {
 
 const StatusBadge: React.FC<{ status: HistoryItem['status'] }> = ({ status }) => {
     const baseClasses = "px-3 py-1 text-xs font-semibold rounded-full";
-    const statusClasses = {
+    const statusClasses: Record<HistoryItem['status'], string> = {
         'Won': 'bg-green-500/20 text-green-400',
         'Lost': 'bg-red-500/20 text-red-400',
         'Bidding': 'bg-cyan-500/20 text-cyan-400',
         'Sold': 'bg-blue-500/20 text-blue-400',
         'Listed': 'bg-amber-500/20 text-amber-400',
+        'Returned': 'bg-gray-500/20 text-gray-400',
     };
-    return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
+    return <span className={`${baseClasses} ${statusClasses[status]}`}>{status === 'Returned' ? 'Returned (No Bids)' : status}</span>;
 };
 
 const AuctionHistoryList: React.FC = () => {
@@ -109,7 +110,10 @@ const AuctionHistoryList: React.FC = () => {
                     if (auctionDetails.active && now < endTime) {
                         status = isSeller ? 'Listed' : 'Bidding';
                     } else if (!auctionDetails.active) {
-                        if (isBidder) {
+                        if (!auctionDetails.highestBid || auctionDetails.highestBid === BigInt(0)) {
+                            // Settled with zero bids — NFT returned to seller
+                            status = isSeller ? 'Returned' : 'Lost';
+                        } else if (isBidder) {
                             status = 'Won';
                         } else if (isSeller) {
                             status = 'Sold';
@@ -117,7 +121,7 @@ const AuctionHistoryList: React.FC = () => {
                             status = 'Lost';
                         }
                     } else {
-                        // Auction ended but not settled
+                        // Auction ended but not yet settled
                         status = isSeller ? 'Sold' : (isBidder ? 'Won' : 'Lost');
                     }
 

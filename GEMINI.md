@@ -1,10 +1,10 @@
 # Brother ID Project Memo
 
-**Last Updated:** April 4, 2026
-**Revision:** 0.9.2 - Profile Edit & Pricing Plan
+**Last Updated:** April 5, 2026
+**Revision:** 0.9.3 - Infrastructure Hardening & Roadmap
 
 ## 1. Executive Summary
-**Brother ID** (Brother Naming Service - BNS) is a decentralized identity provider built on **Starknet**. It enables users to register, manage, and auction human-readable identities (ending in `.real`) mapped to blockchain addresses. The project consists of a React-based frontend (`client1`) and Cairo v2 smart contracts (`contracts`).
+**Brother ID** (Brother Naming Service - BNS) is a decentralized identity provider built on **Starknet**. It enables users to register, manage, and auction human-readable identities (ending in `.real`) mapped to blockchain addresses. The project consists of a React-based frontend (`client1`), Cairo v2 smart contracts (`contracts`), and a production-grade resolution API (`solver-service`).
 
 ## 2. Architecture
 
@@ -19,7 +19,7 @@
   - **`SearchBox`**: Domain availability check and registration initiation.
   - **`Profile`**: User dashboard for owned domains and auction history.
   - **`AuctionList` / `AuctionItem`**: Real-time auction marketplace interface.
-  - **`RegistrationModal`**: A 4-step centered wizard with glassmorphism styling and concurrent price fetching.
+  - **`RegistrationModal`**: A polished 4-step wizard with header badges, price skeletons, and connection guards.
   - **`WalletModal`**: A premium AVNU-inspired connection interface with categorized wallets, "Recently used" tracking, and Xverse/MetaMask support.
   - **Modals**: `BiddingModal`, `StartAuctionModal`, `ManageDomainModal`.
 
@@ -41,8 +41,12 @@
   - **`UpgradeableContract` (`src/proxy.cairo`)**: Implements native Cairo v2 upgradability (`replace_class_syscall`), allowing logic updates while preserving state/address.
   - **`BrotherToken` (`src/brother_token.cairo`)**: ERC20 token used for payments.
 
-### 2.3 Infrastructure (`indexer`)
-- **Indexer:** Apibara configuration (`apibara.config.json`) to index `DomainRegistered` and `Transfer` events to MongoDB. This enables high-performance data fetching for the frontend.
+### 2.3 Infrastructure & API
+- **Solver Service (`solver-service`)**: Hardened Express.js API for lightning-fast name resolution.
+  - **Security**: 7-layer protection (Helmet, Rate-limiting, CORS, Sanitization, Traceability).
+  - **Caching**: Positive (60s) and Negative (5s) in-memory caching for performance.
+  - **Endpoints**: Standardized `/v1/resolve`, `/v1/reverse`, and `/v1/profile` for ecosystem partners.
+- **Indexer**: Apibara configuration (`apibara.config.json`) to index `DomainRegistered` and `Transfer` events to MongoDB.
 
 ## 3. Key Features & Workflows
 
@@ -60,6 +64,7 @@
   - **Winner:** Receives the NFT.
   - **Seller:** Receives highest bid minus fees (default 2% fee to treasury).
   - **Losers:** Can withdraw their refundable bid amounts.
+- **Stability Improvement**: UI now prevents "Cancel Auction" if bids are present.
 
 ### 3.3 Management
 - **Resolution:** Map names to addresses (`resolve_domain`) and vice-versa (`reverse_resolve`).
@@ -77,12 +82,13 @@
 - **V3 Deployment Complete**: Native Cairo v2 Upgradable Proxy deployed at `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`.
 - **UI Refinement Complete**: Registration Wizard and Wallet Modal overhauled.
 - **Frontend Sync**: All `client1` constants updated to point to the V3 Proxy.
-- **Stabilization:** Explicit `blockIdentifier: 'latest'` overrides and on-chain ownership verification implemented.
+- **Hardening**: Auction stress-test completed; Mainnet Roadmap documented.
 
 ## 5. Revision Log
 
 | Date | Version | Notes |
 | :--- | :--- | :--- |
+| **Apr 5, 2026** | **0.9.3** | **Infrastructure Hardening & Roadmap.** Built hardened Resolver API with 7-layer security. Conducted Auction stress-test (Remediated Cancel/Status UX). Polished Registration Wizard (Header badges, Price skeletons). Created Mainnet Roadmap. |
 | **Apr 4, 2026** | **0.9.2** | **Profile Edit & Pricing Plan.** Implemented Edit Profile with Generated Avatars (canvas-based). Added new USD-indexed Pricing Page ($5, $8, $12 plans). Hardened on-chain decoding with `safeDecode` to prevent ASCII corruption errors. |
 | **Apr 4, 2026** | **0.9.1** | **V3 Stabilization & UX Fixes.** Fixed STRK payment token initialization on proxy. Resolved double-encoding bugs in profile and manage modals. Added "Cancel Auction" and "Share on X" functionality. |
 | **Apr 3, 2026** | **0.9.0** | **V3 Upgrade & Frontend Sync.** Deployed upgradeable proxy contract. Updated frontend to point to the new proxy address. Verified `is_mint_active` on-chain. |

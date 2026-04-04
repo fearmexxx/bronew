@@ -38,7 +38,11 @@ const VerifiedIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const SearchBox: React.FC = () => {
+interface SearchBoxProps {
+    onViewProfile?: () => void;
+}
+
+const SearchBox: React.FC<SearchBoxProps> = ({ onViewProfile }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -331,7 +335,13 @@ const SearchBox: React.FC = () => {
                 )}
             </div>
 
-            {isModalOpen && <RegistrationModal domainName={domainToRegister} onClose={() => setIsModalOpen(false)} />}
+            {isModalOpen && (
+                <RegistrationModal 
+                    domainName={domainToRegister} 
+                    onClose={() => setIsModalOpen(false)} 
+                    onViewProfile={onViewProfile}
+                />
+            )}
             {isStartAuctionModalOpen && <StartAuctionModal domainName={domainToAuction} onClose={() => setIsStartAuctionModalOpen(false)} />}
         </div>
     );

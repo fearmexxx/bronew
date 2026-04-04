@@ -1,5 +1,42 @@
 # Progress Log: Brother ID (BNS)
 
+## Session: April 5, 2026
+**Objective:** Infrastructure Hardening & Roadmap
+**Revision:** 0.9.3
+
+### Achievements:
+1. **Full Resolver API Rewrite** (`solver-service/`):
+    - Rebuilt from 86-line script into a modular, 7-layer secured REST service.
+    - New structure: `server.js`, `config.js`, `middleware/`, `cache/`, `resolver/`, `routes/`.
+2. **Security & Performance**:
+    - **7-Layer Protection** — Helmet, CORS whitelist, Rate-limiting, Progressive slowdown, Input validation, In-memory cache, and Request ID tracing.
+    - **V3 Proxy Integration** — Pointed resolver to the `0xfad6...` proxy for all identity lookups.
+3. **Auction Stress-Testing**:
+    - **Contract Review** — Analyzed `settle`, `bid`, `cancel_auction`, and `withdraw` logic.
+    - **Bug Discovery** — Identified ownership gap in `settle()` where resolution records don't update post-transfer (added to roadmap).
+    - **UX Fixes** — Implemented "Has Bids" guard for the Cancel button to prevent failed transactions.
+    - **Status Accuracy** — Fixed `AuctionHistoryList` to show "Returned" for zero-bid settlements.
+4. **Registration Wizard Polish**:
+    - **Contextual UI** — Added domain name badge to modal header and improved review/success screen layout.
+    - **States & Rails** — Added price-loading skeletons, wallet connection guards on Step 1, and character count warnings.
+    - **Identity Flow** — Integrated `onViewProfile` callback to bridge the registration-to-dashboard gap.
+5. **Mainnet Roadmap**:
+    - Created [mainnet_roadmap.md](file:///home/fearme/.gemini/antigravity/brain/a9268d41-41de-4f1c-87c3-af026d19d010/mainnet_roadmap.md) covering auditing, infra setup, and partner integrations.
+
+### Verified:
+- ✅ `/health` — 200 with version + uptime
+- ✅ `/v1/resolve` — successful forward resolution from V3 proxy
+- ✅ Cancel Button — correctly disabled when bids are present on-chain
+- ✅ Wizard Skeletons — smooth transition during price polling
+- ✅ Step 4 "View My Identities" — successfully navigates to the Profile tab
+
+### Next Steps:
+- Deploy `solver-service` to production (Railway/Fly.io)
+- Reach out to Argent/Braavos for native resolution testing
+- Implement contract fix for Bug #1 (Settlement ownership sync) before Mainnet
+
+---
+
 ## Session: April 4, 2026
 **Objective:** V3 Stabilization & UX Fixes
 **Revision:** 0.9.1

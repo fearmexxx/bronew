@@ -82,10 +82,11 @@ const DomainList: React.FC = () => {
     const [domains, setDomains] = useState<OwnedDomain[]>(mockDomains);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [auctionedDomains, setAuctionedDomains] = useState<Set<string>>(new Set());
+    const [auctionHasBids, setAuctionHasBids] = useState<Set<string>>(new Set());
     const [cancellingDomain, setCancellingDomain] = useState<string | null>(null);
     const { address, isConnected } = useAccount();
     const { getUserDomains, getDomainInfo } = useBns();
-    const { fetchActiveAuctionDomains, cancelAuction } = useAuction();
+    const { fetchActiveAuctionDomains, cancelAuction, getAuctionDetails } = useAuction();
 
     const fetchDomains = useCallback(async () => {
         if (!isConnected || !address) { setDomains([]); return; }
@@ -173,14 +174,23 @@ const DomainList: React.FC = () => {
         fetchDomains();
     }, [fetchDomains]);
 
-    // Fetch which of user's domains are currently in auction
+    // Fetch which of user's domains are in auction, and whether any have bids (to disable Cancel)
     useEffect(() => {
         if (!domains.length) return;
-        fetchActiveAuctionDomains().then(activeDomains => {
+        fetchActiveAuctionDomains().then(async (activeDomains) => {
             const nameSet = new Set(activeDomains.map(d => d.toLowerCase()));
             setAuctionedDomains(nameSet);
+            const bidChecks = await Promise.all(
+                activeDomains.map(async (d) => {
+                    try {
+                        const details = await getAuctionDetails(d);
+                        return { name: d.toLowerCase(), hasBids: details ? details.highestBid > BigInt(0) : false };
+                    } catch { return { name: d.toLowerCase(), hasBids: false }; }
+                })
+            );
+            setAuctionHasBids(new Set(bidChecks.filter(b => b.hasBids).map(b => b.name)));
         }).catch(() => {});
-    }, [domains, fetchActiveAuctionDomains]);
+    }, [domains, fetchActiveAuctionDomains, getAuctionDetails]);
 
     const handleRenewClick = (domain: OwnedDomain) => {
         setDomainToRenew(domain);
@@ -267,13 +277,22 @@ const DomainList: React.FC = () => {
                                 <button onClick={() => handleManageClick(domain)} className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-gray-700/80 text-white font-semibold rounded-full hover:bg-gray-700 btn-hover-effect">Manage</button>
                                 <button onClick={() => handleRenewClick(domain)} className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm border border-[#00c6ff] text-white font-semibold rounded-full hover:bg-[#00c6ff]/20 btn-hover-effect">Renew</button>
                                 {auctionedDomains.has(domain.name.toLowerCase()) ? (
-                                    <button
-                                        onClick={() => handleCancelAuctionClick(domain)}
-                                        disabled={cancellingDomain === domain.name}
-                                        className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600/80 text-white font-bold rounded-full hover:bg-red-600 btn-hover-effect whitespace-nowrap disabled:opacity-50"
-                                    >
-                                        {cancellingDomain === domain.name ? 'Cancelling...' : 'Cancel Auction'}
-                                    </button>
+                                    auctionHasBids.has(domain.name.toLowerCase()) ? (
+                                        <span
+                                            title="Cannot cancel: bids have been placed"
+                                            className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-gray-800 text-gray-500 font-semibold rounded-full border border-gray-700 cursor-not-allowed whitespace-nowrap select-none"
+                                        >
+                                            🔒 Has Bids
+                                        </span>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleCancelAuctionClick(domain)}
+                                            disabled={cancellingDomain === domain.name}
+                                            className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-red-600/80 text-white font-bold rounded-full hover:bg-red-600 btn-hover-effect whitespace-nowrap disabled:opacity-50"
+                                        >
+                                            {cancellingDomain === domain.name ? 'Cancelling...' : 'Cancel Auction'}
+                                        </button>
+                                    )
                                 ) : (
                                     <button onClick={() => handleStartAuctionClick(domain)} className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-gradient-to-r from-[#00f2a1] to-[#00c6ff] text-black font-bold rounded-full hover:opacity-90 btn-hover-effect whitespace-nowrap">List for Auction</button>
                                 )}
