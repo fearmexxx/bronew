@@ -249,4 +249,85 @@ async function getDomainsOf(address) {
     .filter(Boolean);
 }
 
-module.exports = { resolve, reverseLookup, getProfile, getDomainsOf };
+/**
+ * Fetch the identity state for a domain (Protocol v2).
+ */
+async function getIdentity(name) {
+  const profile = await getProfile(name);
+  if (!profile) return null;
+
+  const { provider } = require('./contract');
+  const identityAddr = require('../config').identityContractAddress;
+
+  const fallback = {
+    name: profile.name,
+    identity_address: profile.address,
+    wallets: [profile.address],
+    agents: [],
+    privacy_enabled: true,
+    shielded_balance: '0',
+    credentials_count: 0,
+    metadata: profile.records
+  };
+
+  if (!identityAddr || identityAddr === '0x0') {
+    return fallback;
+  }
+
+  try {
+    const rawDetails = await provider.callContract({
+      contractAddress: identityAddr,
+      entrypoint: 'get_identity_details_of',
+      calldata: [profile.address]
+    }, 'latest');
+
+    let data = Array.isArray(rawDetails) ? rawDetails : (rawDetails.result ?? rawDetails.data ?? []);
+    // Parse: primary_domain (felt252), is_privacy_enabled (bool), shielded_balance (u256 = low + high)
+    const primaryDomainFelt = data[0];
+    const isPrivacyEnabled = data[1] === '0x1' || data[1] === 1n || data[1] === '1';
+    const shieldedLow = BigInt(data[2] ?? 0);
+    const shieldedHigh = BigInt(data[3] ?? 0);
+    const shieldedBalance = ((shieldedHigh << 128n) + shieldedLow).toString();
+
+    const rawWalletsCount = await provider.callContract({
+      contractAddress: identityAddr,
+      entrypoint: 'get_wallets_count',
+      calldata: [profile.address]
+    }, 'latest');
+    
+    let countData = Array.isArray(rawWalletsCount) ? rawWalletsCount : (rawWalletsCount.result ?? rawWalletsCount.data ?? []);
+    const walletsCount = Number(BigInt(countData[0] ?? 0));
+
+    const wallets = [];
+    for (let i = 0; i < walletsCount; i++) {
+      const rawWallet = await provider.callContract({
+        contractAddress: identityAddr,
+        entrypoint: 'get_wallet',
+        calldata: [profile.address, i]
+      }, 'latest');
+      let wData = Array.isArray(rawWallet) ? rawWallet : (rawWallet.result ?? rawWallet.data ?? []);
+      if (wData[0]) {
+        wallets.push(toHexAddress(BigInt(wData[0])));
+      }
+    }
+
+    if (wallets.length === 0) {
+      wallets.push(profile.address);
+    }
+
+    return {
+      name: profile.name,
+      identity_address: profile.address,
+      wallets,
+      agents: [],
+      privacy_enabled: isPrivacyEnabled,
+      shielded_balance: shieldedBalance,
+      credentials_count: 0,
+      metadata: profile.records
+    };
+  } catch (error) {
+    return fallback;
+  }
+}
+
+module.exports = { resolve, reverseLookup, getProfile, getDomainsOf, getIdentity };

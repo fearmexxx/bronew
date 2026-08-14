@@ -77,17 +77,19 @@
 
 ## 4. Current State & Configuration
 
-- **Network:** Sepolia Testnet (Alchemy v0_10 endpoint synced).
+- **Network:** Sepolia Testnet (Alchemy v0_8/v0_10 RPC synced).
 - **Phase 1-4 Complete:** Text Records, Grace Period, Verification, Metadata, Infrastructure.
-- **V3 Deployment Complete**: Native Cairo v2 Upgradable Proxy deployed at `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`.
-- **UI Refinement Complete**: Registration Wizard and Wallet Modal overhauled.
-- **Frontend Sync**: All `client1` constants updated to point to the V3 Proxy.
-- **Hardening**: Auction stress-test completed; Mainnet Roadmap documented.
+- **V3 Proxy Deployment Active**: `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`.
+- **Brother Protocol v3 (Identity & Escrow Privacy Layer) Live**: `IdentityContract` with atomic ERC20 token movement (`deposit`, `withdraw`, `private_send`) deployed at `0x07493f41c9d961e36c4973a787df6b035bf0b673d23623e811420df21c0547bd`.
+- **UI Status**: Identity Dashboard, Domain Selector Switcher, Real Escrow Private Wallet (Deposit/Withdraw/Send with BNS resolution), and Private Contacts fully integrated with live on-chain queries.
 
 ## 5. Revision Log
 
 | Date | Version | Notes |
 | :--- | :--- | :--- |
+| **Aug 14, 2026** | **0.9.6** | **Real Token Escrow & Audit Hardening Live.** Upgraded and redeployed `IdentityContract` (`0x07493f41c9d961e36c4973a787df6b035bf0b673d23623e811420df21c0547bd`) on Starknet Sepolia to support atomic ERC20 token transfers on `withdraw` and `private_send` via `IERC20Dispatcher`. Fixed balance spoofing with guarded `deposit` arithmetic. Added on-chain `.real` recipient name resolution for private transfers, synced contact selection with `useEffect`, moved Alchemy RPC key to `.env` with fallback, and updated Solver service. |
+| **Aug 14, 2026** | **0.9.5** | **Multi-Tenant Sovereign Privacy & Cumulative Pool Live.** Refactored and redeployed `IdentityContract` (`0x03b94753dd3574baf62f06aaa7761ba2f5642a076644f08781ad391d5e942d7e`) on Starknet Sepolia to support multi-tenant identity states. Added shortString felt252 decoding for minted domains, dynamic navbar active state highlighting, and cumulative private pool balance accounting (Shield / Unshield / Send). |
+| **Aug 14, 2026** | **0.9.4** | **Brother Protocol v2 Deployment & Testnet Live.** Successfully deployed initial `IdentityContract` on Starknet Sepolia. Integrated v2 Identity Dashboard, Private Wallet, and Contacts with `@brother/sdk`. Automated Cairo + Jest tests pass 100%. |
 | **Apr 5, 2026** | **0.9.3** | **Infrastructure Hardening & Roadmap.** Built hardened Resolver API with 7-layer security. Conducted Auction stress-test (Remediated Cancel/Status UX). Polished Registration Wizard (Header badges, Price skeletons). Created Mainnet Roadmap. |
 | **Apr 4, 2026** | **0.9.2** | **Profile Edit & Pricing Plan.** Implemented Edit Profile with Generated Avatars (canvas-based). Added new USD-indexed Pricing Page ($5, $8, $12 plans). Hardened on-chain decoding with `safeDecode` to prevent ASCII corruption errors. |
 | **Apr 4, 2026** | **0.9.1** | **V3 Stabilization & UX Fixes.** Fixed STRK payment token initialization on proxy. Resolved double-encoding bugs in profile and manage modals. Added "Cancel Auction" and "Share on X" functionality. |

@@ -1,5 +1,4 @@
 use starknet::ContractAddress;
-use starknet::ClassHash;
 // Removed deprecated contract_address_const import
 
 // Payment token dispatcher is now provided via contract storage/constructor (see module below)
@@ -8,6 +7,8 @@ use starknet::ClassHash;
 mod brother_token;
 mod proxy;
 mod tests;
+pub mod identity_contract;
+
 
 #[derive(Copy, Drop, Serde, starknet::Store, PartialEq)]
 struct DomainDetails {
@@ -136,6 +137,9 @@ pub trait IBrotherNamingService<TContractState> {
     
     // Referral functions
     fn get_referral_earnings(self: @TContractState, address: ContractAddress) -> u256;
+    
+    // Identity features
+    fn get_identity_details(self: @TContractState, domain: felt252) -> identity_contract::IdentityDetails;
     
     // Initializer (for upgrades)
     fn initialize(ref self: TContractState, name: ByteArray, symbol: ByteArray, base_price: u256, treasury: ContractAddress, payment_token: ContractAddress);
@@ -1534,6 +1538,14 @@ mod BrotherNamingService {
 
         fn get_referral_earnings(self: @ContractState, address: ContractAddress) -> u256 {
             self._referrals_earned.read(address)
+        }
+
+        fn get_identity_details(self: @ContractState, domain: felt252) -> super::identity_contract::IdentityDetails {
+            super::identity_contract::IdentityDetails {
+                primary_domain: domain,
+                is_privacy_enabled: false,
+                shielded_balance: 0,
+            }
         }
 
         // Parameter Governance Implementations

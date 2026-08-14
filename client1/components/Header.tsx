@@ -12,12 +12,6 @@ const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
     </svg>
 );
 
-const WalletIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 1 1 0 000-2zM2 16a1 1 0 112 0 1 1 0 01-2 0z" clipRule="evenodd" />
-    </svg>
-);
-
 const ChevronDownIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-4 w-4"} viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
@@ -25,16 +19,25 @@ const ChevronDownIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 interface HeaderProps {
-    setCurrentView: (view: 'search' | 'profile' | 'pricing') => void;
+    currentView: 'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing';
+    setCurrentView: (view: 'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing') => void;
     walletAddress: string | null;
     onConnect: () => void;
     onDisconnect: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ setCurrentView, walletAddress, onConnect, onDisconnect }) => {
-
+const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, walletAddress, onConnect, onDisconnect }) => {
     const formatAddress = (address: string) => {
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
+    };
+
+    const getNavClass = (view: 'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing') => {
+        const isActive = currentView === view;
+        return `text-sm font-medium transition-all px-3 py-1.5 rounded-full ${
+            isActive
+                ? 'text-orange-400 bg-orange-500/10 border border-orange-500/20'
+                : 'text-gray-400 hover:text-white hover:bg-white/5'
+        }`;
     };
 
     return (
@@ -47,23 +50,22 @@ const Header: React.FC<HeaderProps> = ({ setCurrentView, walletAddress, onConnec
                             B
                         </div>
                         <span className="text-xl font-display font-bold tracking-tight text-white group-hover:text-gray-200 transition-colors">
-                            Brother ID
+                            Brother ID v2
                         </span>
                     </button>
 
-                    {/* Desktop Navigation - Simpler, cleaner text */}
-                    <div className="hidden md:flex items-center gap-8 ml-4">
-                        <button onClick={() => setCurrentView('search')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Features</button>
-                        <button onClick={() => setCurrentView('pricing')} className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Pricing</button>
+                    {/* Desktop Navigation */}
+                    <div className="hidden md:flex items-center gap-2 ml-4">
+                        <button onClick={() => setCurrentView('search')} className={getNavClass('search')}>Search</button>
+                        <button onClick={() => setCurrentView('identity')} className={getNavClass('identity')}>Identity Dashboard</button>
+                        <button onClick={() => setCurrentView('private-wallet')} className={getNavClass('private-wallet')}>Private Wallet</button>
+                        <button onClick={() => setCurrentView('contacts')} className={getNavClass('contacts')}>Contacts</button>
+                        <button onClick={() => setCurrentView('pricing')} className={getNavClass('pricing')}>Pricing</button>
                     </div>
                 </div>
 
                 {/* Right Actions */}
                 <div className="flex items-center gap-3">
-                    <button className="hidden sm:flex text-sm font-medium text-white/70 hover:text-white px-3 py-1.5 transition-colors">
-                        En
-                    </button>
-
                     <button className="p-2 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
                         <BellIcon className="h-5 w-5" />
                     </button>
@@ -73,9 +75,9 @@ const Header: React.FC<HeaderProps> = ({ setCurrentView, walletAddress, onConnec
                     {walletAddress ? (
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setCurrentView('profile')}
+                                onClick={() => setCurrentView('identity')}
                                 className="hidden md:flex items-center justify-center p-2 rounded-full hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
-                                title="View Profile"
+                                title="View Identity Dashboard"
                             >
                                 <UserIcon />
                             </button>

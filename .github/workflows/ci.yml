@@ -1,0 +1,55 @@
+name: Brother Protocol CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  contracts:
+    name: Cairo Smart Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Scarb
+        uses: software-mansion/setup-scarb@v1
+        with:
+          scarb-version: "2.11.0"
+      - name: Build Contracts
+        run: |
+          cd contracts/brotherdomain
+          scarb build
+      - name: Run Cairo Tests
+        run: |
+          cd contracts/brotherdomain
+          scarb test
+
+  frontend:
+    name: Frontend Client & Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build Client
+        run: |
+          cd client1
+          npm ci || npm install
+          npm run build
+
+  sdk:
+    name: TypeScript Developer SDK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build & Test SDK
+        run: |
+          cd sdk
+          npm ci || npm install
+          npm run build
+          npm test

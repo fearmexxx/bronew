@@ -10,6 +10,7 @@ const config = {
     'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/qXU4ta4yLmxUhIoLb-cZ7KtsNn808Pjw',
   bnsContractAddress: process.env.BNS_CONTRACT_ADDRESS ||
     '0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371',
+  identityContractAddress: process.env.IDENTITY_CONTRACT_ADDRESS || '0x0',
   network: process.env.NETWORK || 'starknet-sepolia',
 
   // Security

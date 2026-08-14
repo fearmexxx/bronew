@@ -11,6 +11,7 @@ const healthRoutes = require('./routes/health');
 const resolveRoutes = require('./routes/resolve');
 const reverseRoutes = require('./routes/reverse');
 const profileRoutes = require('./routes/profile');
+const identityRoutes = require('./routes/identity');
 
 const app = express();
 
@@ -41,13 +42,14 @@ app.use('/', healthRoutes);      // /health, /v1/meta
 app.use('/', resolveRoutes);     // /v1/resolve
 app.use('/', reverseRoutes);     // /v1/reverse
 app.use('/', profileRoutes);     // /v1/profile, /v1/domains
+app.use('/', identityRoutes);    // /v1/identity
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
     message: `Endpoint ${req.method} ${req.originalUrl} does not exist.`,
-    availableEndpoints: ['/health', '/v1/meta', '/v1/resolve', '/v1/reverse', '/v1/profile', '/v1/domains'],
+    availableEndpoints: ['/health', '/v1/meta', '/v1/resolve', '/v1/reverse', '/v1/profile', '/v1/domains', '/v1/identity'],
     requestId: req.requestId,
   });
 });
@@ -83,6 +85,7 @@ app.listen(config.port, () => {
   console.log(`     GET /v1/reverse?address=0x...`);
   console.log(`     GET /v1/profile?name=satoshi.real`);
   console.log(`     GET /v1/domains?address=0x...`);
+  console.log(`     GET /v1/identity?name=satoshi.real`);
   console.log(`\n   Security:`);
   console.log(`     Rate limit : ${config.rateLimitMax} req / ${config.rateLimitWindowMs / 60000}min`);
   console.log(`     Slowdown   : after ${config.slowDownThreshold} req`);
