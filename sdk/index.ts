@@ -27,6 +27,21 @@ export interface ContractCall {
   calldata: string[];
 }
 
+export function parseTokenAmount(amount: string, decimals: number = 18): bigint {
+  const normalized = amount.trim();
+  if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    throw new Error('Amount must be a positive decimal number');
+  }
+  const [whole, fraction = ''] = normalized.split('.');
+  if (fraction.length > decimals) {
+    throw new Error(`Amount supports at most ${decimals} decimal places`);
+  }
+  const value = BigInt(whole) * (10n ** BigInt(decimals))
+    + BigInt((fraction + '0'.repeat(decimals)).slice(0, decimals));
+  if (value <= 0n) throw new Error('Amount must be greater than zero');
+  return value;
+}
+
 export class Brother {
   public solverUrl: string;
   public identityContractAddress: string;
@@ -34,12 +49,18 @@ export class Brother {
 
   constructor(
     solverUrl: string = 'http://localhost:3001',
-    identityContractAddress: string = '0x07493f41c9d961e36c4973a787df6b035bf0b673d23623e811420df21c0547bd',
+    identityContractAddress: string = '0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e',
     strkTokenAddress: string = '0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d'
   ) {
     this.solverUrl = solverUrl.replace(/\/$/, '');
     this.identityContractAddress = identityContractAddress;
     this.strkTokenAddress = strkTokenAddress;
+  }
+
+  private requireEscrowAddress(): void {
+    if (!/^0x[0-9a-fA-F]+$/.test(this.identityContractAddress) || BigInt(this.identityContractAddress) === 0n) {
+      throw new Error('A deployed secured IdentityContract address is required');
+    }
   }
 
   /**
@@ -92,18 +113,19 @@ export class Brother {
   }
 
   /**
-   * Prepares on-chain multicall to shield STRK tokens into the privacy escrow pool.
+   * Prepares an atomic approve-and-deposit multicall for the STRK escrow pool.
    * @param amountEth Amount of STRK (in human-readable ether format, e.g. "10")
    */
   buildShieldCalls(amountEth: string): ContractCall[] {
-    const wei = BigInt(Math.floor(parseFloat(amountEth) * 1e18));
+    this.requireEscrowAddress();
+    const wei = parseTokenAmount(amountEth);
     const low = (wei & ((1n << 128n) - 1n)).toString();
     const high = (wei >> 128n).toString();
 
     return [
       {
         contractAddress: this.strkTokenAddress,
-        entrypoint: 'transfer',
+        entrypoint: 'approve',
         calldata: [this.identityContractAddress, low, high],
       },
       {
@@ -124,7 +146,8 @@ export class Brother {
    * @param amountEth Amount of STRK to withdraw
    */
   buildWithdrawCall(amountEth: string): ContractCall {
-    const wei = BigInt(Math.floor(parseFloat(amountEth) * 1e18));
+    this.requireEscrowAddress();
+    const wei = parseTokenAmount(amountEth);
     const low = (wei & ((1n << 128n) - 1n)).toString();
     const high = (wei >> 128n).toString();
 
@@ -141,7 +164,11 @@ export class Brother {
    * @param amountEth Amount of STRK
    */
   buildPrivateSendCall(recipientAddress: string, amountEth: string): ContractCall {
-    const wei = BigInt(Math.floor(parseFloat(amountEth) * 1e18));
+    this.requireEscrowAddress();
+    if (!/^0x[0-9a-fA-F]+$/.test(recipientAddress) || BigInt(recipientAddress) === 0n) {
+      throw new Error('Recipient must be a non-zero Starknet address');
+    }
+    const wei = parseTokenAmount(amountEth);
     const low = (wei & ((1n << 128n) - 1n)).toString();
     const high = (wei >> 128n).toString();
 

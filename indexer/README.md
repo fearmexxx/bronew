@@ -8,8 +8,15 @@ The `apibara.config.json` file is configured to index events from the Brother Na
 
 ### Tracked Events
 
-- `DomainRegistered` (Selector: `0x02ac2972ebc7a424742a0346bf272764a77a87c67776264627473772277d7376`)
+- `DomainRegistered` (Selector: `0x018096170626d07dddd1fb895c099d8145323f5a24bf592813527905b27eeac1`)
 - `Transfer` (Selector: `0x0099cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9`)
+- `Deposited` (Identity escrow)
+- `Withdrawn` (Identity escrow)
+- `PrivateSent` (Identity escrow)
+
+The indexer targets secured Sepolia escrow
+`0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e`.
+The retired `0x07493...` contract must not be indexed as the active escrow.
 
 ## Usage
 

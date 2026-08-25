@@ -3,7 +3,7 @@ const path = require("path");
 const { Account, RpcProvider, CallData, constants } = require("./client1/node_modules/starknet");
 
 const wallet = JSON.parse(fs.readFileSync("dev_wallet.json", "utf8"));
-const RPC_URL = "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/qXU4ta4yLmxUhIoLb-cZ7KtsNn808Pjw";
+const RPC_URL = process.env.STARKNET_RPC_URL || "https://api.cartridge.gg/x/starknet/sepolia";
 const provider = new RpcProvider({ nodeUrl: RPC_URL });
 
 async function deploy() {

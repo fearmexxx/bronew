@@ -7,7 +7,7 @@ async function main() {
   const provider = new RpcProvider({
     nodeUrl:
       process.env.RPC_ENDPOINT ||
-      "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
+      "https://api.cartridge.gg/x/starknet/sepolia",
   });
 
   const normalizeHex = (value: string): string => {

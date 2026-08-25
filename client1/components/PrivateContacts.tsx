@@ -72,11 +72,11 @@ export const PrivateContacts: React.FC<PrivateContactsProps> = ({ onSendClick })
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold">
           <UserCheck className="w-4 h-4" />
-          <span>Zero-Knowledge Identity Address Book</span>
+          <span>Identity Address Book</span>
         </div>
         <h2 className="text-3xl font-bold font-display text-white">Private Contacts</h2>
         <p className="text-gray-400 text-sm max-w-xl mx-auto">
-          Save human-readable <span className="text-orange-400">.real</span> identities with verified Zero-Knowledge routing. Execute 1-click private payments directly.
+          Save human-readable <span className="text-orange-400">.real</span> identities and start one-click, on-chain domain-routed payments.
         </p>
       </div>
 

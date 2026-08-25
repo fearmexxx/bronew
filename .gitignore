@@ -21,6 +21,7 @@ contracts/brotherdomain/target/
 # Misc & OS
 .DS_Store
 *.pem
+flop_agent_identity.json
 dev_wallet.json
 starkli-wallets/
 

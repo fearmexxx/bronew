@@ -15,7 +15,11 @@ jobs:
       - name: Install Scarb
         uses: software-mansion/setup-scarb@v1
         with:
-          scarb-version: "2.11.0"
+          scarb-version: "2.11.4"
+      - name: Install Starknet Foundry
+        uses: foundry-rs/setup-snfoundry@v4
+        with:
+          starknet-foundry-version: "0.45.0"
       - name: Build Contracts
         run: |
           cd contracts/brotherdomain
@@ -23,7 +27,7 @@ jobs:
       - name: Run Cairo Tests
         run: |
           cd contracts/brotherdomain
-          scarb test
+          snforge test
 
   frontend:
     name: Frontend Client & Build
@@ -52,4 +56,18 @@ jobs:
           cd sdk
           npm ci || npm install
           npm run build
+          npm test
+
+  resolver:
+    name: Resolver API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Test Resolver API
+        run: |
+          cd solver-service
+          npm ci || npm install
           npm test

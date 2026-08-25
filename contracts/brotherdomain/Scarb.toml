@@ -13,6 +13,7 @@ openzeppelin = "0.20.0"
 cairo_test = "2.11.0"
 # snforge_std = "0.40.0"
 assert_macros = "2.11.0"
+snforge_std = "0.45.0"
 
 [[target.starknet-contract]]
 sierra = true

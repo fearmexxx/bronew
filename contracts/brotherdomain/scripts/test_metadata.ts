@@ -6,7 +6,7 @@ dotenv.config();
 
 async function testMetadata() {
   const provider = new RpcProvider({
-    nodeUrl: process.env.RPC_ENDPOINT || "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
+    nodeUrl: process.env.RPC_ENDPOINT || "https://api.cartridge.gg/x/starknet/sepolia",
   });
 
   const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;

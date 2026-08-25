@@ -79,8 +79,9 @@
 
 - **Network:** Sepolia Testnet (Alchemy v0_8/v0_10 RPC synced).
 - **Phase 1-4 Complete:** Text Records, Grace Period, Verification, Metadata, Infrastructure.
-- **V3 Proxy Deployment Active**: `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`.
-- **Brother Protocol v3 (Identity & Escrow Privacy Layer) Live**: `IdentityContract` with atomic ERC20 token movement (`deposit`, `withdraw`, `private_send`) deployed at `0x07493f41c9d961e36c4973a787df6b035bf0b673d23623e811420df21c0547bd`.
+- **Fresh BNS Proxy Active**: `0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8`, controlled by the recoverable local Starkli admin account.
+- **Hardened BNS Class**: `0x06a8e3a2329cfea86e0a24043992f65ef67b6af4cf7ddb6fe175f48b6e2d806e`; repeated initialization is blocked.
+- **Secured Identity Escrow Live**: `IdentityContract` with atomic ERC20 custody (`deposit`, `withdraw`, `private_send`) deployed at `0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e`. The escrow is transparent on-chain and is not a zero-knowledge privacy system.
 - **UI Status**: Identity Dashboard, Domain Selector Switcher, Real Escrow Private Wallet (Deposit/Withdraw/Send with BNS resolution), and Private Contacts fully integrated with live on-chain queries.
 
 ## 5. Revision Log

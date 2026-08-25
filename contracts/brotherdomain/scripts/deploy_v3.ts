@@ -6,7 +6,7 @@ dotenv.config();
 
 async function main() {
   const provider = new RpcProvider({
-    nodeUrl: process.env.RPC_ENDPOINT || "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/qXU4ta4yLmxUhIoLb-cZ7KtsNn808Pjw",
+    nodeUrl: process.env.RPC_ENDPOINT || "https://api.cartridge.gg/x/starknet/sepolia",
   });
 
   const account0 = new Account({

@@ -8,14 +8,6 @@ export default defineConfig(({ mode }) => {
       server: {
         port: 3000,
         host: '0.0.0.0',
-        proxy: {
-          '/rpc': {
-            target: 'https://starknet-sepolia.public.blastapi.io',
-            changeOrigin: true,
-            rewrite: (path) => path,
-            secure: true,
-          },
-        },
       },
       plugins: [react()],
       define: {

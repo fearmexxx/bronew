@@ -34,12 +34,12 @@ async function main() {
   const provider = new RpcProvider({
     nodeUrl:
       process.env.RPC_ENDPOINT ||
-      "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
+      "https://api.cartridge.gg/x/starknet/sepolia",
   });
 
   // Try alternative RPC endpoint
   const provider2 = new RpcProvider({
-    nodeUrl: "https://starknet-sepolia.public.blastapi.io/rpc/v0_7",
+    nodeUrl: "https://api.cartridge.gg/x/starknet/sepolia",
   });
 
   const rawBnsAddress = process.env.BNS_ADDRESS ?? "";

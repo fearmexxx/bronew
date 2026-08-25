@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const { Account, RpcProvider, json, CallData, ec, stark } = require("./client1/node_modules/starknet");
 
-const RPC_URL = "https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/qXU4ta4yLmxUhIoLb-cZ7KtsNn808Pjw";
+const RPC_URL = process.env.STARKNET_RPC_URL || "https://api.cartridge.gg/x/starknet/sepolia";
 const provider = new RpcProvider({ nodeUrl: RPC_URL });
 
 // Public key from starkli-wallets/account.json

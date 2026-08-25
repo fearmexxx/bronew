@@ -7,10 +7,11 @@ const config = {
 
   // Starknet
   rpcUrl: process.env.RPC_URL ||
-    'https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/qXU4ta4yLmxUhIoLb-cZ7KtsNn808Pjw',
+    'https://api.cartridge.gg/x/starknet/sepolia',
   bnsContractAddress: process.env.BNS_CONTRACT_ADDRESS ||
-    '0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371',
-  identityContractAddress: process.env.IDENTITY_CONTRACT_ADDRESS || '0x0',
+    '0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8',
+  identityContractAddress: process.env.IDENTITY_CONTRACT_ADDRESS ||
+    '0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e',
   network: process.env.NETWORK || 'starknet-sepolia',
 
   // Security

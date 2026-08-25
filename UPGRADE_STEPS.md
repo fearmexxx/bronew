@@ -7,7 +7,7 @@ Create `contracts/brotherdomain/.env` and add:
 ```env
 DEPLOYER_ADDRESS=0x...
 DEPLOYER_PRIVATE_KEY=0x...
-RPC_ENDPOINT=https://starknet-sepolia.public.blastapi.io/rpc/v0_8
+RPC_ENDPOINT=https://api.cartridge.gg/x/starknet/sepolia
 PROXY_CONTRACT_ADDRESS=0x44f8e5acfb2aeb5580698edb9d5fbf376d46acb38b99aaa1de942c98dd19182
 ```
 

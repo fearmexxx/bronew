@@ -375,7 +375,7 @@ export const IdentityDashboard: React.FC<IdentityDashboardProps> = ({ walletAddr
             <Shield className="w-4 h-4 text-orange-400" />
           </div>
           <p className="text-2xl font-bold text-white">{isPrivacyActive ? 'Active' : 'Disabled'}</p>
-          <p className="text-xs text-orange-400/80">STRK20 ZK Routing On</p>
+          <p className="text-xs text-orange-400/80">STRK Escrow Routing</p>
         </div>
 
         <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2 backdrop-blur-md">
@@ -398,7 +398,7 @@ export const IdentityDashboard: React.FC<IdentityDashboardProps> = ({ walletAddr
 
         <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2 backdrop-blur-md">
           <div className="flex items-center justify-between text-gray-400 text-xs font-medium">
-            <span>ZK CREDENTIALS</span>
+            <span>ON-CHAIN CREDENTIALS</span>
             <Key className="w-4 h-4 text-cyan-400" />
           </div>
           <p className="text-2xl font-bold text-white">{ownedDomains.length > 0 ? `${ownedDomains.length} Verified` : '1 Verified'}</p>

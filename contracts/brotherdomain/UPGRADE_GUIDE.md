@@ -40,7 +40,7 @@ This allows the UI to calculate the correct minimum bid amount according to the 
    ```env
    DEPLOYER_PRIVATE_KEY=your_private_key
    DEPLOYER_ADDRESS=your_address
-   RPC_ENDPOINT=https://starknet-sepolia.public.blastapi.io/rpc/v0_8
+   RPC_ENDPOINT=https://api.cartridge.gg/x/starknet/sepolia
    PROXY_CONTRACT_ADDRESS=0x44f8e5acfb2aeb5580698edb9d5fbf376d46acb38b99aaa1de942c98dd19182
    ```
 

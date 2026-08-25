@@ -1,5 +1,6 @@
 import { Account, Contract, RpcProvider, hash } from "starknet";
 import * as dotenv from "dotenv";
+import { readFileSync } from "fs";
 import { getCompiledCode } from "./utils";
 dotenv.config();
 
@@ -15,7 +16,7 @@ async function main() {
   const provider = new RpcProvider({
     nodeUrl:
       process.env.RPC_ENDPOINT ||
-      "https://starknet-sepolia-rpc.publicnode.com/",
+      "https://api.cartridge.gg/x/starknet/sepolia",
   });
 
   const normalizeHex = (value: string): string => {
@@ -24,8 +25,12 @@ async function main() {
     return trimmed.startsWith("0x") ? trimmed : `0x${trimmed}`;
   };
 
-  const rawPrivateKey = process.env.DEPLOYER_PRIVATE_KEY ?? "";
-  const rawAccountAddress: string = process.env.DEPLOYER_ADDRESS ?? "";
+  const walletFile = process.env.DEPLOYER_WALLET_FILE;
+  const wallet = walletFile ? JSON.parse(readFileSync(walletFile, "utf8")) : undefined;
+  const rawPrivateKey = process.env.DEPLOYER_PRIVATE_KEY ??
+    wallet?.private_key ?? wallet?.privateKey ?? "";
+  const rawAccountAddress: string = process.env.DEPLOYER_ADDRESS ??
+    wallet?.account_address ?? wallet?.address ?? "";
 
   if (!rawPrivateKey || !rawAccountAddress) {
     throw new Error(
@@ -35,7 +40,7 @@ async function main() {
 
   // Get proxy contract address from env or use the known address
   const PROXY_CONTRACT_ADDRESS = process.env.PROXY_CONTRACT_ADDRESS ||
-    "0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371";
+    "0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8";
 
   const privateKey0 = normalizeHex(rawPrivateKey);
   const accountAddress0: string = normalizeHex(rawAccountAddress);
@@ -73,6 +78,21 @@ async function main() {
     newClassHash = hash.computeContractClassHash(bnsSierraCode);
     console.log("-> Local class hash computed:", newClassHash);
 
+    if (process.env.ESTIMATE_ONLY === "1") {
+      const estimate = await account0.estimateDeclareFee({
+        contract: bnsSierraCode,
+        casm: bnsCasmCode,
+      });
+      console.log("Declaration estimated overall fee:", estimate.overall_fee.toString());
+      console.log("ESTIMATE_ONLY=1: no transaction submitted.");
+      return;
+    }
+
+    if (process.env.DRY_RUN === "1") {
+      console.log("DRY_RUN=1: declaration and proxy upgrade skipped.");
+      return;
+    }
+
     console.log("\n📦 Declaring new BrotherNamingService implementation...");
     const declareResponse = await account0.declare({
       contract: bnsSierraCode,
@@ -93,6 +113,12 @@ async function main() {
       console.error("❌ Declaration failed:", e.message);
       process.exit(1);
     }
+  }
+
+  if (process.env.DECLARE_ONLY === "1") {
+    console.log("DECLARE_ONLY=1: BNS class declared; proxy upgrade skipped.");
+    console.log("New class hash:", newClassHash);
+    return;
   }
 
   // Step 3: Connect to the existing proxy contract

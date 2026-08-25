@@ -19,12 +19,13 @@ set -euo pipefail
 
 # ─── Configuration ─────────────────────────────────────────────────────────────
 NETWORK="sepolia"
-RPC_URL="${STARKNET_RPC_URL:-https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_10/qXU4ta4yLmxUhIoLb-cZ7KtsNn808Pjw}"
+RPC_URL="${STARKNET_RPC_URL:-https://api.cartridge.gg/x/starknet/sepolia}"
 ACCOUNT_FILE="${STARKNET_ACCOUNT:-./account.json}"
 KEYSTORE_FILE="${STARKNET_KEYSTORE:-./keystore.json}"
 
 # The owner address for the IdentityContract (your wallet address)
 OWNER_ADDRESS="${OWNER_ADDRESS:-}"
+STRK_TOKEN_ADDRESS="${STRK_TOKEN_ADDRESS:-0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d}"
 
 # Path to compiled contract artifacts
 CONTRACT_DIR="../contracts/brotherdomain/target/dev"
@@ -78,6 +79,7 @@ DEPLOY_OUTPUT=$(starkli deploy \
     --watch \
     "$CLASS_HASH" \
     "$OWNER_ADDRESS" \
+    "$STRK_TOKEN_ADDRESS" \
     2>&1)
 
 CONTRACT_ADDRESS=$(echo "$DEPLOY_OUTPUT" | grep -oE '0x[0-9a-f]+' | tail -1)
@@ -93,13 +95,14 @@ echo "  Network          : ${NETWORK}"
 echo "  Class Hash       : ${CLASS_HASH}"
 echo "  Contract Address : ${CONTRACT_ADDRESS}"
 echo "  Owner            : ${OWNER_ADDRESS}"
+echo "  STRK Token       : ${STRK_TOKEN_ADDRESS}"
 echo ""
 echo "  Next steps:"
 echo "    1. Update solver-service/.env with:"
 echo "       IDENTITY_CONTRACT_ADDRESS=${CONTRACT_ADDRESS}"
 echo ""
-echo "    2. Update client1/src/constants/index.ts with:"
-echo "       export const IDENTITY_CONTRACT_ADDRESS = \"${CONTRACT_ADDRESS}\";"
+echo "    2. Update client1/.env with:"
+echo "       VITE_IDENTITY_CONTRACT_ADDRESS=${CONTRACT_ADDRESS}"
 echo ""
 echo "    3. Verify on Voyager:"
 echo "       https://sepolia.voyager.online/contract/${CONTRACT_ADDRESS}"

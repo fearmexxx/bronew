@@ -42,7 +42,7 @@
 
 ## 🛠️ Technical Specs
 - **Network**: Sepolia Testnet.
-- **Proxy Address**: `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`
+- **Proxy Address**: `0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8`
 - **Provider**: Alchemy RPC with `latest` blockID persistence.
 - **SDK**: Starknet.js v8 + Starknet-React.
 - **Contracts**: Cairo v2 (Upgradable).

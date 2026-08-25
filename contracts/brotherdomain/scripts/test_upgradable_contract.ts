@@ -5,7 +5,7 @@ dotenv.config();
 
 async function testUpgradableContract() {
   const provider = new RpcProvider({
-    nodeUrl: process.env.RPC_ENDPOINT || "https://starknet-sepolia.public.blastapi.io/rpc/v0_8",
+    nodeUrl: process.env.RPC_ENDPOINT || "https://api.cartridge.gg/x/starknet/sepolia",
   });
 
   // Your new upgradable contract address

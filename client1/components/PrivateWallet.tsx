@@ -10,6 +10,16 @@ interface PrivateWalletProps {
   initialRecipient?: string;
 }
 
+const parseStrkAmount = (amount: string): bigint => {
+  const normalized = amount.trim();
+  if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error('Enter a valid positive STRK amount.');
+  const [whole, fraction = ''] = normalized.split('.');
+  if (fraction.length > 18) throw new Error('STRK supports at most 18 decimal places.');
+  const value = BigInt(whole) * 10n ** 18n + BigInt((fraction + '0'.repeat(18)).slice(0, 18));
+  if (value <= 0n) throw new Error('Amount must be greater than zero.');
+  return value;
+};
+
 export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, initialRecipient }) => {
   const [activeTab, setActiveTab] = useState<'shield' | 'unshield' | 'send'>(initialRecipient ? 'send' : 'shield');
   const [shieldAmount, setShieldAmount] = useState('10');
@@ -67,30 +77,34 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     loadShieldedState();
   }, [walletAddress]);
 
-  // Cumulative Shield: Transfers STRK into identity escrow pool and records deposit
+  // Cumulative Shield: approves escrow; deposit() atomically pulls and records STRK.
   const handleShieldOnChain = async () => {
+    if (IDENTITY_CONTRACT_ADDRESS === '0x0') {
+      setStatusMsg('Secured escrow is awaiting deployment. Transactions are temporarily disabled.');
+      return;
+    }
     if (!isConnected || !account) {
       setStatusMsg('Please connect your Starknet wallet first.');
       return;
     }
 
     setIsProcessing(true);
-    setStatusMsg('Signing real on-chain STRK transfer to privacy escrow pool...');
+    setStatusMsg('Signing an on-chain STRK deposit to the escrow pool...');
     setTxHash(null);
 
     try {
-      const depositWei = BigInt(Math.floor(parseFloat(shieldAmount || '1') * 1e18));
+      const depositWei = parseStrkAmount(shieldAmount);
 
       const depLow = (depositWei & ((1n << 128n) - 1n)).toString();
       const depHigh = (depositWei >> 128n).toString();
 
-      // Multicall: 1. Transfer STRK tokens to Identity pool, 2. Enable privacy, 3. Record deposit
+      // Multicall: 1. Approve escrow, 2. Enable privacy, 3. Pull and record deposit
       const tx = await account.execute([
         {
           contractAddress: STRK_TOKEN_ADDRESS,
-          entrypoint: 'transfer',
+          entrypoint: 'approve',
           calldata: CallData.compile({
-            recipient: IDENTITY_CONTRACT_ADDRESS,
+            spender: IDENTITY_CONTRACT_ADDRESS,
             amount: { low: depLow, high: depHigh },
           }),
         },
@@ -111,7 +125,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
       await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
       const expectedTotal = currentShieldedWei + depositWei;
-      setStatusMsg(`Successfully shielded +${shieldAmount} STRK into Escrow Pool! Total pool balance: ${(Number(expectedTotal) / 1e18).toFixed(2)} STRK`);
+      setStatusMsg(`Deposited +${shieldAmount} STRK into the escrow pool. Total balance: ${(Number(expectedTotal) / 1e18).toFixed(2)} STRK`);
       await loadShieldedState();
     } catch (err: any) {
       console.error('Shield tx error:', err);
@@ -123,19 +137,29 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
   // Unshield: Contract's withdraw() sends STRK back to caller and decrements shielded balance
   const handleUnshieldOnChain = async () => {
+    if (IDENTITY_CONTRACT_ADDRESS === '0x0') {
+      setStatusMsg('Secured escrow is awaiting deployment. Transactions are temporarily disabled.');
+      return;
+    }
     if (!isConnected || !account) {
       setStatusMsg('Please connect your Starknet wallet first.');
       return;
     }
 
-    const withdrawWei = BigInt(Math.floor(parseFloat(unshieldAmount || '1') * 1e18));
+    let withdrawWei: bigint;
+    try {
+      withdrawWei = parseStrkAmount(unshieldAmount);
+    } catch (error: any) {
+      setStatusMsg(error.message);
+      return;
+    }
     if (withdrawWei > currentShieldedWei) {
       setStatusMsg('Cannot unshield more than current shielded balance.');
       return;
     }
 
     setIsProcessing(true);
-    setStatusMsg('Processing ZK Unshield — withdrawing STRK from escrow pool...');
+    setStatusMsg('Withdrawing STRK from the on-chain escrow pool...');
     setTxHash(null);
 
     try {
@@ -166,12 +190,22 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
   // Private Send: Resolves .real domain then calls contract's private_send() to transfer STRK
   const handlePrivateSendOnChain = async () => {
+    if (IDENTITY_CONTRACT_ADDRESS === '0x0') {
+      setStatusMsg('Secured escrow is awaiting deployment. Transactions are temporarily disabled.');
+      return;
+    }
     if (!isConnected || !account) {
       setStatusMsg('Please connect your Starknet wallet first.');
       return;
     }
 
-    const sendWei = BigInt(Math.floor(parseFloat(sendAmount || '1') * 1e18));
+    let sendWei: bigint;
+    try {
+      sendWei = parseStrkAmount(sendAmount);
+    } catch (error: any) {
+      setStatusMsg(error.message);
+      return;
+    }
     if (sendWei > currentShieldedWei) {
       setStatusMsg('Insufficient shielded balance. Shield more STRK first.');
       return;
@@ -215,11 +249,11 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
         },
       ]);
 
-      setStatusMsg(`Private payment transaction submitted!`);
+      setStatusMsg(`Domain-routed payment transaction submitted!`);
       setTxHash(tx.transaction_hash);
 
       await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
-      setStatusMsg(`Private payment of ${sendAmount} STRK sent to ${sendToDomain}!`);
+      setStatusMsg(`Payment of ${sendAmount} STRK sent to ${sendToDomain}.`);
       await loadShieldedState();
     } catch (err: any) {
       console.error('Send error:', err);
@@ -235,11 +269,11 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
           <Shield className="w-4 h-4" />
-          <span>STRK20 Zero-Knowledge Privacy Engine</span>
+          <span>STRK On-Chain Escrow</span>
         </div>
         <h2 className="text-3xl font-bold font-display text-white">Private Wallet & Shielded Pool</h2>
         <p className="text-gray-400 text-sm max-w-xl mx-auto">
-          Cumulative zero-knowledge balance inside your sovereign identity layer. Shield assets, withdraw, and send private payments directly to{' '}
+          Transparent on-chain escrow inside your identity layer. Deposit assets, withdraw, and send domain-routed payments directly to{' '}
           <span className="text-orange-400">.real</span> identities.
         </p>
       </div>

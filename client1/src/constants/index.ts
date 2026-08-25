@@ -6,15 +6,17 @@ export const STRK_TOKEN_ADDRESS =
 export const voyagerScanBaseUrl = "https://sepolia.voyager.online";
 
 // RPC URL — set VITE_STARKNET_RPC in .env to override
-const NODE_URL = (import.meta as any).env?.VITE_STARKNET_RPC || "https://starknet-sepolia.public.blastapi.io/rpc/v0_7";
+const NODE_URL = (import.meta as any).env?.VITE_STARKNET_RPC || "https://api.cartridge.gg/x/starknet/sepolia";
 export const provider = new RpcProvider({ nodeUrl: NODE_URL });
 
 export const BNS_CONTRACT_ADDRESS =
-  "0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371";
+  "0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8";
 export const BROTHER_TOKEN_ADDRESS = STRK_TOKEN_ADDRESS;
 
 export const ERC20Abi: Abi = [];
 
-// Brother Protocol v3 — Identity Contract with Real Token Escrow (Deployed on Starknet Sepolia)
+// Secured escrow deployment. Intentionally fail closed until a new contract is deployed;
+// the previous Sepolia address exposes unsafe balance-mutation entrypoints.
 export const IDENTITY_CONTRACT_ADDRESS =
-  "0x07493f41c9d961e36c4973a787df6b035bf0b673d23623e811420df21c0547bd";
+  (import.meta as any).env?.VITE_IDENTITY_CONTRACT_ADDRESS ||
+  "0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e";

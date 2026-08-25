@@ -75,6 +75,21 @@ function parseExpiry(raw) {
   }
 }
 
+function parseIdentityDetails(data) {
+  if (!Array.isArray(data) || data.length < 4) {
+    throw new Error('Malformed IdentityContract response');
+  }
+  const primaryDomainFelt = data[0];
+  const isPrivacyEnabled = data[1] === '0x1' || data[1] === 1n || data[1] === '1';
+  const shieldedLow = BigInt(data[2] ?? 0);
+  const shieldedHigh = BigInt(data[3] ?? 0);
+  return {
+    primaryDomainFelt,
+    isPrivacyEnabled,
+    shieldedBalance: ((shieldedHigh << 128n) + shieldedLow).toString(),
+  };
+}
+
 // ─── BNS Read Functions ───────────────────────────────────────────────────────
 
 /**
@@ -264,7 +279,7 @@ async function getIdentity(name) {
     identity_address: profile.address,
     wallets: [profile.address],
     agents: [],
-    privacy_enabled: true,
+    privacy_enabled: false,
     shielded_balance: '0',
     credentials_count: 0,
     metadata: profile.records
@@ -283,15 +298,11 @@ async function getIdentity(name) {
 
     let data = Array.isArray(rawDetails) ? rawDetails : (rawDetails.result ?? rawDetails.data ?? []);
     // Parse: primary_domain (felt252), is_privacy_enabled (bool), shielded_balance (u256 = low + high)
-    const primaryDomainFelt = data[0];
-    const isPrivacyEnabled = data[1] === '0x1' || data[1] === 1n || data[1] === '1';
-    const shieldedLow = BigInt(data[2] ?? 0);
-    const shieldedHigh = BigInt(data[3] ?? 0);
-    const shieldedBalance = ((shieldedHigh << 128n) + shieldedLow).toString();
+    const { isPrivacyEnabled, shieldedBalance } = parseIdentityDetails(data);
 
     const rawWalletsCount = await provider.callContract({
       contractAddress: identityAddr,
-      entrypoint: 'get_wallets_count',
+      entrypoint: 'get_wallets_count_of',
       calldata: [profile.address]
     }, 'latest');
     
@@ -302,7 +313,7 @@ async function getIdentity(name) {
     for (let i = 0; i < walletsCount; i++) {
       const rawWallet = await provider.callContract({
         contractAddress: identityAddr,
-        entrypoint: 'get_wallet',
+        entrypoint: 'get_wallet_by_index_of',
         calldata: [profile.address, i]
       }, 'latest');
       let wData = Array.isArray(rawWallet) ? rawWallet : (rawWallet.result ?? rawWallet.data ?? []);
@@ -326,8 +337,11 @@ async function getIdentity(name) {
       metadata: profile.records
     };
   } catch (error) {
-    return fallback;
+    throw new Error(`IdentityContract query failed: ${error.message}`);
   }
 }
 
-module.exports = { resolve, reverseLookup, getProfile, getDomainsOf, getIdentity };
+module.exports = {
+  resolve, reverseLookup, getProfile, getDomainsOf, getIdentity,
+  _test: { normalizeBool, u256ToBigInt, toHexAddress, safeDecode, parseExpiry, parseIdentityDetails },
+};

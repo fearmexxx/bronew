@@ -2,7 +2,7 @@
 
 > **Decentralized Sovereign Identity & Privacy Layer for Starknet**
 
-Brother Protocol transforms human-readable `.real` domain names into sovereign, multi-tenant digital identities on Starknet. It bundles native naming service operations, decentralized auctions, text records, and a zero-knowledge shielded asset escrow pool for private payments.
+Brother Protocol transforms human-readable `.real` domain names into sovereign, multi-tenant digital identities on Starknet. It bundles native naming service operations, decentralized auctions, text records, and a transparent on-chain STRK escrow for domain-routed payments. The current escrow does not provide zero-knowledge transaction privacy.
 
 ---
 
@@ -24,8 +24,8 @@ broidentity/
 
 | Contract | Address | Explorer |
 | :--- | :--- | :--- |
-| **BNS V3 Proxy** | `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371` | [Voyager](https://sepolia.voyager.online/contract/0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371) |
-| **Identity Contract (v3 Escrow)** | `0x07493f41c9d961e36c4973a787df6b035bf0b673d23623e811420df21c0547bd` | [Voyager](https://sepolia.voyager.online/contract/0x07493f41c9d961e36c4973a787df6b035bf0b673d23623e811420df21c0547bd) |
+| **Fresh BNS Proxy** | `0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8` | [Voyager](https://sepolia.voyager.online/contract/0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8) |
+| **Secured Identity Escrow** | `0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e` | [Voyager](https://sepolia.voyager.online/contract/0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e) |
 | **STRK Token** | `0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d` | [Voyager](https://sepolia.voyager.online/contract/0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d) |
 
 ---

@@ -2,7 +2,7 @@
 
 **Version:** 0.9.1 (V3 Stabilization)
 **Network:** Starknet Sepolia Testnet
-**Contract:** `0xfad69cad592fc44fe3673717a643929eb5a62689eb2abeb7a1a0d3ae105371`
+**Contract:** `0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8`
 
 ## 1. Core Naming Service (BNS)
 - **Domain Registration:** Register `.real` identities for 1, 2, or 3 years.

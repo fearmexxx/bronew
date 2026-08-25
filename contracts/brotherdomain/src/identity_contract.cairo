@@ -33,14 +33,11 @@ pub trait IIdentityContract<TContractState> {
     fn remove_wallet(ref self: TContractState, wallet: ContractAddress);
     fn update_wallet_role(ref self: TContractState, wallet: ContractAddress, role: felt252);
 
-    // Privacy & Shielded Pool (with real token movement)
+    // Privacy & Escrow Pool (with real token movement)
     fn enable_privacy(ref self: TContractState, enabled: bool);
     fn deposit(ref self: TContractState, amount: u256);
     fn withdraw(ref self: TContractState, amount: u256);
     fn private_send(ref self: TContractState, recipient: ContractAddress, amount: u256);
-
-    // Legacy compatibility — kept for frontend migration period, will be removed
-    fn update_shielded_balance(ref self: TContractState, amount: u256);
 
     // Agent delegation
     fn register_agent(ref self: TContractState, agent_domain: felt252, agent_address: ContractAddress, permissions: felt252, capabilities: felt252);
@@ -59,6 +56,8 @@ pub trait IIdentityContract<TContractState> {
     fn get_wallet(self: @TContractState, wallet: ContractAddress) -> WalletInfo;
     fn get_wallets_count(self: @TContractState) -> u256;
     fn get_wallet_by_index(self: @TContractState, index: u256) -> WalletInfo;
+    fn get_wallets_count_of(self: @TContractState, user: ContractAddress) -> u256;
+    fn get_wallet_by_index_of(self: @TContractState, user: ContractAddress, index: u256) -> WalletInfo;
 
     // Admin
     fn get_strk_token(self: @TContractState) -> ContractAddress;
@@ -68,6 +67,7 @@ pub trait IIdentityContract<TContractState> {
 #[starknet::interface]
 pub trait IERC20<TContractState> {
     fn transfer(ref self: TContractState, recipient: ContractAddress, amount: u256) -> bool;
+    fn transfer_from(ref self: TContractState, sender: ContractAddress, recipient: ContractAddress, amount: u256) -> bool;
     fn balance_of(self: @TContractState, account: ContractAddress) -> u256;
 }
 
@@ -141,7 +141,6 @@ pub mod IdentityContract {
         Deposited: Deposited,
         Withdrawn: Withdrawn,
         PrivateSent: PrivateSent,
-        ShieldedBalanceUpdated: ShieldedBalanceUpdated,
         AgentRegistered: AgentRegistered,
         GuardianAdded: GuardianAdded,
     }
@@ -187,13 +186,6 @@ pub mod IdentityContract {
     struct PrivateSent {
         sender: ContractAddress,
         recipient: ContractAddress,
-        amount: u256,
-    }
-
-    // Legacy event kept for backwards compatibility
-    #[derive(Drop, starknet::Event)]
-    struct ShieldedBalanceUpdated {
-        user: ContractAddress,
         amount: u256,
     }
 
@@ -288,12 +280,16 @@ pub mod IdentityContract {
             }
         }
 
-        /// Deposit: Records deposit amount (frontend already transferred STRK via multicall).
-        /// Adds to existing balance — no arbitrary setting.
+        /// Pulls STRK from the caller and credits exactly the transferred amount.
         fn deposit(ref self: ContractState, amount: u256) {
             self.reentrancy_guard.start();
             assert(amount > 0, 'Deposit amount must be > 0');
             let caller = get_caller_address();
+
+            let strk = IERC20Dispatcher { contract_address: self._strk_token_address.read() };
+            let success = strk.transfer_from(caller, starknet::get_contract_address(), amount);
+            assert(success, 'STRK transfer failed');
+
             let current = self._user_shielded_balance.read(caller);
             let new_balance = current + amount;
             self._user_shielded_balance.write(caller, new_balance);
@@ -339,13 +335,6 @@ pub mod IdentityContract {
 
             self.emit(PrivateSent { sender: caller, recipient, amount });
             self.reentrancy_guard.end();
-        }
-
-        /// Legacy: Kept for frontend migration period. Will be removed in next version.
-        fn update_shielded_balance(ref self: ContractState, amount: u256) {
-            let caller = get_caller_address();
-            self._user_shielded_balance.write(caller, amount);
-            self.emit(ShieldedBalanceUpdated { user: caller, amount });
         }
 
         fn register_agent(ref self: ContractState, agent_domain: felt252, agent_address: ContractAddress, permissions: felt252, capabilities: felt252) {
@@ -420,6 +409,16 @@ pub mod IdentityContract {
             let count = self._user_wallet_count.read(caller);
             assert(index < count, 'Index out of bounds');
             self._user_wallets.read((caller, index))
+        }
+
+        fn get_wallets_count_of(self: @ContractState, user: ContractAddress) -> u256 {
+            self._user_wallet_count.read(user)
+        }
+
+        fn get_wallet_by_index_of(self: @ContractState, user: ContractAddress, index: u256) -> WalletInfo {
+            let count = self._user_wallet_count.read(user);
+            assert(index < count, 'Index out of bounds');
+            self._user_wallets.read((user, index))
         }
 
         fn get_strk_token(self: @ContractState) -> ContractAddress {
