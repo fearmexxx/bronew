@@ -18,7 +18,9 @@ jobs:
           scarb-version: "2.11.4"
           scarb-lock: contracts/brotherdomain/Scarb.lock
       - name: Install Starknet Foundry
-        uses: foundry-rs/setup-snfoundry@v4
+        # v4 currently resolves the latest release even when 0.45.0 is requested.
+        # v3 preserves the compiler/test toolchain used for the deployed class.
+        uses: foundry-rs/setup-snfoundry@v3
         with:
           starknet-foundry-version: "0.45.0"
       - name: Build Contracts
