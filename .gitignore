@@ -45,7 +45,6 @@ solver-service/.env
 *.local
 
 # Scarb / Cairo
-Scarb.lock
 dev-dependencies/
 
 # IDE

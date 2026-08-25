@@ -11,7 +11,7 @@ jobs:
     name: Cairo Smart Contracts
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Scarb
         uses: software-mansion/setup-scarb@v1
         with:
@@ -33,10 +33,10 @@ jobs:
     name: Frontend Client & Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
       - name: Build Client
         run: |
           cd client1
@@ -47,10 +47,10 @@ jobs:
     name: TypeScript Developer SDK
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
       - name: Build & Test SDK
         run: |
           cd sdk
@@ -62,10 +62,10 @@ jobs:
     name: Resolver API
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
       - name: Test Resolver API
         run: |
           cd solver-service
