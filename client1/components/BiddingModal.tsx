@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuction } from '../src/hooks/useAuction';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import type { Auction } from './AuctionList';
 
 const CloseIcon: React.FC<{ className?: string }> = ({ className }) => (

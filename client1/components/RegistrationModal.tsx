@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useBns } from '../src/hooks/useBns';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 
 const formatSTRK = (hex: string) => {
     try {
@@ -199,7 +199,9 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
             
             <div className="grid grid-cols-1 gap-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                 <div className="space-y-4">
-                    {Object.entries(records).map(([key, value]) => (
+                    {Object.entries(records).map(([key, rawValue]) => {
+                        const value = String(rawValue);
+                        return (
                         <div key={key} className="space-y-1.5">
                             <div className="flex justify-between">
                                 <label className="text-[10px] uppercase font-black text-gray-500 tracking-widest">{key}</label>
@@ -222,7 +224,8 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                                 </div>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 

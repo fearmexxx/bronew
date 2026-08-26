@@ -125,7 +125,7 @@ export const PrivateContacts: React.FC<PrivateContactsProps> = ({ onSendClick })
                   <span className="font-bold text-white font-mono text-base">{c.domain}</span>
                   {c.privacyEnabled && (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold flex items-center gap-1">
-                      <Shield className="w-3 h-3" /> Private Routing
+                      <Shield className="w-3 h-3" /> Preferred STRK20 recipient
                     </span>
                   )}
                   {c.verified && (

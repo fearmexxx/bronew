@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useConnect, Connector } from '@starknet-react/core';
+import { useConnect, type Connector } from '../src/starknet/StarknetProvider';
 import { toast } from 'react-hot-toast';
 
 const CloseIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -69,6 +69,7 @@ const getWalletDetails = (connector: Connector): WalletDetails => {
     const id = connector.id.toLowerCase();
     const name = connector.name || '';
 
+    if (id.includes('ready')) return { name: "Ready", subtext: "STRK20 privacy-enabled", icon: <ArgentIcon /> };
     if (id.includes('argent')) {
         if (id.includes('mobile')) return { name: "Ready Mobile", subtext: "", icon: <ArgentIcon /> };
         return { name: "Ready (formly Argent)", subtext: "", icon: <ArgentIcon /> };
@@ -89,7 +90,7 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
 
     const getInstallUrl = (connectorId: string): string => {
         const id = connectorId.toLowerCase();
-        if (id.includes('argent')) return 'https://www.argent.xyz/';
+        if (id.includes('ready') || id.includes('argent')) return 'https://www.ready.co/';
         if (id.includes('braavos')) return 'https://braavos.app/';
         if (id.includes('xverse')) return 'https://www.xverse.app/';
         if (id.includes('metamask')) return 'https://metamask.io/';
@@ -142,7 +143,7 @@ const WalletModal: React.FC<WalletModalProps> = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     // Grouping
-    const primaryIds = ['argent', 'braavos', 'metamask', 'xverse'];
+    const primaryIds = ['ready', 'argent', 'xverse', 'braavos'];
     const primary = connectors.filter(c => primaryIds.some(id => c.id.toLowerCase().includes(id)));
     const others = connectors.filter(c => !primary.includes(c));
 

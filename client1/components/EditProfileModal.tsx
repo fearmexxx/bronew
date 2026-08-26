@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import { useBns } from '../src/hooks/useBns';
 import { useNfts, NFTAsset } from '../src/hooks/useNfts';
 import { toast } from 'react-hot-toast';

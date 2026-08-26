@@ -15,7 +15,8 @@ The project encompasses a frontend web application for:
 - **Frontend Framework**: React (Vite)
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS (with custom animations and gradients)
-- **Blockchain Interaction**: Starknet React (@starknet-react/core)
+- **Blockchain Interaction**: starknet.js v10 Wallet Standard discovery and `WalletAccountV6`
+- **Privacy**: STRK20 Wallet API v0.10.3+ (`strk20Balances`, `strk20PrepareInvoke`, and `strk20InvokeTransaction`)
 - **State Management**: React Hooks (local state)
 
 ## 4. Key Features & Functional Requirements
@@ -132,9 +133,9 @@ graph TD
 ## 7. Assumptions & Constraints
 - The project currently relies on mocked data in some places (like `mockSuggestions` in SearchBox) or specific hooks (`useBns`) that need to be fully integrated with live Starknet contracts.
 - "Real" domain extension is the primary product.
+- Private STRK requires a Sepolia wallet that exposes STRK20 Wallet API v0.10.3 or newer. Privacy keys and proofs stay inside that wallet.
 
 ## 8. Future Roadmap
 - Full Smart Contract integration for Registry, Resolver, and Auction Controller.
 - Secondary marketplace features.
 - Expanded record management (socials, avatars).
-

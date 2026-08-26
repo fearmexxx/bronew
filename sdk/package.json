@@ -1,7 +1,7 @@
 {
   "name": "@brother/sdk",
-  "version": "1.0.0",
-  "description": "Brother Protocol v2 Developer SDK",
+  "version": "2.0.0",
+  "description": "Brother ID SDK with STRK20 Wallet API v0.10.3 privacy support",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
@@ -13,7 +13,8 @@
     "test": "jest"
   },
   "dependencies": {
-    "starknet": "^6.0.0"
+    "@starknet-io/types-js": "^0.10.3",
+    "starknet": "^10.4.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",

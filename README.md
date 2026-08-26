@@ -70,10 +70,11 @@ scarb test
 
 - **Human-Readable Identifiers**: Register `.real` names with dynamic length-based pricing and 90-day grace periods.
 - **Sovereign Multi-Tenant Identity**: Each caller manages their own linked wallets, text records, and AI agent permissions.
-- **Atomic Token Escrow**:
-  - **Deposit (Shield)**: Multicall transfers real STRK into the contract and increments your private balance.
-  - **Withdraw (Unshield)**: Calls `withdraw()` to transfer escrowed tokens back to your public wallet.
-  - **Private Send**: Resolves `.real` recipient on-chain and transfers STRK atomically.
+- **STRK20 Private STRK** (Wallet API v0.10.3+):
+  - **Shield**: The connected privacy wallet creates encrypted notes and proves the STRK20 deposit.
+  - **Unshield**: The wallet proves a withdrawal to a selected public Starknet address.
+  - **Private Send**: Brother ID resolves the `.real` name; the wallet protects sender, recipient, and amount through STRK20.
+  - Brother ID never handles or stores viewing keys. The former transparent Identity escrow remains available only for historical recovery.
 - **Delegated AI Agents**: Configure autonomous agents with specific spending allowances and capabilities (`DEX & Arbitrage`, `Payments`, `Analytics`).
 
 ---

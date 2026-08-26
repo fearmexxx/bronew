@@ -27,6 +27,34 @@ export interface ContractCall {
   calldata: string[];
 }
 
+export type Strk20Action =
+  | { type: 'deposit'; token: string; amount: string }
+  | { type: 'withdraw'; token: string; amount: string; recipient: string }
+  | { type: 'transfer'; token: string; amount: string; recipient: string };
+
+export interface Strk20Balance {
+  token: string;
+  balance?: string;
+  amount?: string;
+  [key: string]: unknown;
+}
+
+/** Structural interface implemented by starknet.js WalletAccountV6. */
+export interface Strk20WalletAccount {
+  strk20Balances(tokens?: string[]): Promise<Strk20Balance[]>;
+  strk20PrepareInvoke(actions: Strk20Action[]): Promise<unknown>;
+  strk20InvokeTransaction(actions: Strk20Action[]): Promise<{ transaction_hash: string }>;
+}
+
+export const supportsStrk20Spec = (version: string): boolean => {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!match) return false;
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  return major > 0 || minor > 10 || (minor === 10 && patch >= 3);
+};
+
 export function parseTokenAmount(amount: string, decimals: number = 18): bigint {
   const normalized = amount.trim();
   if (!/^\d+(\.\d+)?$/.test(normalized)) {
@@ -41,6 +69,31 @@ export function parseTokenAmount(amount: string, decimals: number = 18): bigint 
   if (value <= 0n) throw new Error('Amount must be greater than zero');
   return value;
 }
+
+const tokenAmountHex = (amount: string, decimals = 18): string =>
+  `0x${parseTokenAmount(amount, decimals).toString(16)}`;
+
+export const buildStrk20Deposit = (token: string, amount: string, decimals = 18): Strk20Action => ({
+  type: 'deposit', token, amount: tokenAmountHex(amount, decimals),
+});
+
+export const buildStrk20Withdraw = (
+  token: string,
+  amount: string,
+  recipient: string,
+  decimals = 18,
+): Strk20Action => ({
+  type: 'withdraw', token, amount: tokenAmountHex(amount, decimals), recipient,
+});
+
+export const buildStrk20Transfer = (
+  token: string,
+  amount: string,
+  recipient: string,
+  decimals = 18,
+): Strk20Action => ({
+  type: 'transfer', token, amount: tokenAmountHex(amount, decimals), recipient,
+});
 
 export class Brother {
   public solverUrl: string;
@@ -112,7 +165,35 @@ export class Brother {
     }
   }
 
+  /** Read encrypted-note token balances through a STRK20-compatible wallet. */
+  getPrivateBalances(wallet: Strk20WalletAccount, tokens: string[] = [this.strkTokenAddress]) {
+    return wallet.strk20Balances(tokens);
+  }
+
+  /** Ask the wallet to prepare/prove a STRK20 action batch without broadcasting it. */
+  preparePrivateActions(wallet: Strk20WalletAccount, actions: Strk20Action[]) {
+    return wallet.strk20PrepareInvoke(actions);
+  }
+
+  /** Ask the wallet to prove and submit a STRK20 action batch. */
+  invokePrivateActions(wallet: Strk20WalletAccount, actions: Strk20Action[]) {
+    return wallet.strk20InvokeTransaction(actions);
+  }
+
+  shield(wallet: Strk20WalletAccount, amount: string, token = this.strkTokenAddress) {
+    return this.invokePrivateActions(wallet, [buildStrk20Deposit(token, amount)]);
+  }
+
+  unshield(wallet: Strk20WalletAccount, amount: string, recipient: string, token = this.strkTokenAddress) {
+    return this.invokePrivateActions(wallet, [buildStrk20Withdraw(token, amount, recipient)]);
+  }
+
+  privateTransfer(wallet: Strk20WalletAccount, amount: string, recipient: string, token = this.strkTokenAddress) {
+    return this.invokePrivateActions(wallet, [buildStrk20Transfer(token, amount, recipient)]);
+  }
+
   /**
+   * @deprecated Transparent legacy escrow recovery only. Use shield().
    * Prepares an atomic approve-and-deposit multicall for the STRK escrow pool.
    * @param amountEth Amount of STRK (in human-readable ether format, e.g. "10")
    */
@@ -142,6 +223,7 @@ export class Brother {
   }
 
   /**
+   * @deprecated Transparent legacy escrow recovery only. Use unshield().
    * Prepares on-chain call to unshield (withdraw) STRK from escrow pool.
    * @param amountEth Amount of STRK to withdraw
    */
@@ -159,6 +241,7 @@ export class Brother {
   }
 
   /**
+   * @deprecated This legacy escrow transfer is publicly visible. Use privateTransfer().
    * Prepares on-chain call to execute a private transfer from escrow pool to a recipient address.
    * @param recipientAddress Recipient Starknet contract address
    * @param amountEth Amount of STRK

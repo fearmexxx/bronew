@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import RenewalModal from './RenewalModal';
 import ManageDomainModal from './ManageDomainModal';
 import StartAuctionModal from './StartAuctionModal';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import { useBns } from '../src/hooks/useBns';
 import { useAuction } from '../src/hooks/useAuction';
 import { shortString } from 'starknet';

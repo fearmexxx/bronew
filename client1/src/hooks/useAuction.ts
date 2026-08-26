@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { Abi, Contract, RpcProvider, shortString } from "starknet";
 import { toast } from "react-hot-toast";
-import { useAccount } from "@starknet-react/core";
+import { useAccount } from "../starknet/StarknetProvider";
 import { BNS_CONTRACT_ADDRESS, BROTHER_TOKEN_ADDRESS, provider } from "../constants";
 
 const AUCTION_ABI: Abi = [
@@ -66,8 +66,8 @@ const ERC721_MIN_ABI: Abi = [
 ];
 
 export function useAuction() {
-  const contract = useMemo(() => new Contract(AUCTION_ABI, BNS_CONTRACT_ADDRESS, provider as RpcProvider), []);
-  const tokenContract = useMemo(() => new Contract(ERC20_MIN_ABI, BROTHER_TOKEN_ADDRESS, provider as RpcProvider), []);
+  const contract = useMemo(() => new Contract({ abi: AUCTION_ABI, address: BNS_CONTRACT_ADDRESS, providerOrAccount: provider as RpcProvider }), []);
+  const tokenContract = useMemo(() => new Contract({ abi: ERC20_MIN_ABI, address: BROTHER_TOKEN_ADDRESS, providerOrAccount: provider as RpcProvider }), []);
   const { account, address, isConnected } = useAccount();
 
   const u256ToBigInt = (u256: any): bigint => {
@@ -385,5 +385,3 @@ export function useAuction() {
 
   return { createAuction, cancelAuction, placeBid, withdraw, settle, getAuctionDetails, fetchActiveAuctionDomains };
 }
-
-

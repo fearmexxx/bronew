@@ -12,7 +12,7 @@
 - **Framework:** React 18 (Vite) with TypeScript.
 - **Styling:** Tailwind CSS with custom "Cyberpunk/Futuristic" dark theme (neon accents, glassmorphism).
 - **Web3 Integration:** 
-  - `@starknet-react/core` for wallet connection (Argent X, Braavos, etc.).
+  - Wallet Standard discovery with `starknet.js` v10 `WalletAccountV6` for wallet connection and STRK20 Wallet API privacy operations.
   - `starknet.js` for direct provider interaction.
 - **State Management:** Local React state + Context API (`StarknetProvider`).
 - **Key Components:**
@@ -82,6 +82,7 @@
 - **Fresh BNS Proxy Active**: `0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8`, controlled by the recoverable local Starkli admin account.
 - **Hardened BNS Class**: `0x06a8e3a2329cfea86e0a24043992f65ef67b6af4cf7ddb6fe175f48b6e2d806e`; repeated initialization is blocked.
 - **Secured Identity Escrow Live**: `IdentityContract` with atomic ERC20 custody (`deposit`, `withdraw`, `private_send`) deployed at `0x0789d496b1257bff236a722df1243c4d26210dac453f431538d44c669487e07e`. The escrow is transparent on-chain and is not a zero-knowledge privacy system.
+- **STRK20 Wallet Privacy Live in Client/SDK**: private balances, shielding, unshielding, and transfers use Wallet API v0.10.3+; viewing keys and proof generation remain inside the connected wallet. The Identity escrow is legacy recovery-only.
 - **UI Status**: Identity Dashboard, Domain Selector Switcher, Real Escrow Private Wallet (Deposit/Withdraw/Send with BNS resolution), and Private Contacts fully integrated with live on-chain queries.
 
 ## 5. Revision Log

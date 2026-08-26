@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import { useAuction } from '../src/hooks/useAuction';
 import { useBns } from '../src/hooks/useBns';
 import { shortString } from 'starknet';

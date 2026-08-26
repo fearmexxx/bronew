@@ -2,7 +2,7 @@
 import { useCallback, useMemo } from "react";
 import { Abi, Contract, RpcProvider, shortString, hash } from "starknet";
 import { toast } from "react-hot-toast";
-import { useAccount } from "@starknet-react/core";
+import { useAccount } from "../starknet/StarknetProvider";
 import { BNS_CONTRACT_ADDRESS, BROTHER_TOKEN_ADDRESS, provider } from "../constants";
 
 const BNS_ABI: Abi = [
@@ -80,8 +80,8 @@ const ERC20_MIN_ABI: Abi = [
 ];
 
 export function useBns() {
-  const contract = useMemo(() => new Contract(BNS_ABI, BNS_CONTRACT_ADDRESS, provider as RpcProvider), []);
-  const tokenContract = useMemo(() => new Contract(ERC20_MIN_ABI, BROTHER_TOKEN_ADDRESS, provider as RpcProvider), []);
+  const contract = useMemo(() => new Contract({ abi: BNS_ABI, address: BNS_CONTRACT_ADDRESS, providerOrAccount: provider as RpcProvider }), []);
+  const tokenContract = useMemo(() => new Contract({ abi: ERC20_MIN_ABI, address: BROTHER_TOKEN_ADDRESS, providerOrAccount: provider as RpcProvider }), []);
   const { account, address, isConnected } = useAccount();
 
   // Helper for safe shortString decoding

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useBns } from '../src/hooks/useBns';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import { shortString } from 'starknet';
 import type { OwnedDomain } from './DomainList';
 
@@ -217,7 +217,9 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
             {loadingRecords ? (
                 <div className="text-center text-gray-400 py-4">Loading records...</div>
             ) : (
-                Object.entries(records).map(([key, value]) => (
+                Object.entries(records).map(([key, rawValue]) => {
+                    const value = String(rawValue);
+                    return (
                     <div key={key} className="space-y-1">
                         <label className="text-xs uppercase font-bold text-gray-500">{key}</label>
                         <div className="flex gap-2">
@@ -236,7 +238,8 @@ const ManageDomainModal: React.FC<ManageDomainModalProps> = ({ domain, onClose }
                             </button>
                         </div>
                     </div>
-                ))
+                    );
+                })
             )}
         </div>
     );

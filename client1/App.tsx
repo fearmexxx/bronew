@@ -9,7 +9,7 @@ import ActivityTicker from './components/ActivityTicker';
 import IdentityDashboard from './components/IdentityDashboard';
 import PrivateWallet from './components/PrivateWallet';
 import PrivateContacts from './components/PrivateContacts';
-import { useAccount, useDisconnect } from '@starknet-react/core';
+import { useAccount, useDisconnect } from './src/starknet/StarknetProvider';
 
 // Replaced grid with organic mesh gradients
 const Hero: React.FC = () => (

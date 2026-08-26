@@ -1,4 +1,11 @@
-import { Brother, brother, parseTokenAmount } from '../index';
+import {
+  Brother,
+  buildStrk20Deposit,
+  buildStrk20Transfer,
+  buildStrk20Withdraw,
+  parseTokenAmount,
+  supportsStrk20Spec,
+} from '../index';
 
 describe('Brother Protocol SDK', () => {
   const configured = new Brother(
@@ -44,6 +51,34 @@ describe('Brother Protocol SDK', () => {
   it('parses token amounts without floating-point precision loss', () => {
     expect(parseTokenAmount('1.000000000000000001')).toBe(1000000000000000001n);
     expect(parseTokenAmount('0.5')).toBe(500000000000000000n);
+  });
+
+  it('builds Wallet API v0.10.3 actions', () => {
+    expect(buildStrk20Deposit('0x1', '1')).toEqual({ type: 'deposit', token: '0x1', amount: '0xde0b6b3a7640000' });
+    expect(buildStrk20Withdraw('0x1', '0.5', '0x2')).toEqual({
+      type: 'withdraw', token: '0x1', amount: '0x6f05b59d3b20000', recipient: '0x2',
+    });
+    expect(buildStrk20Transfer('0x1', '2', '0x2')).toEqual({
+      type: 'transfer', token: '0x1', amount: '0x1bc16d674ec80000', recipient: '0x2',
+    });
+  });
+
+  it('delegates private state and proving to the wallet', async () => {
+    const wallet = {
+      strk20Balances: jest.fn().mockResolvedValue([{ token: '0x1', balance: '0x10' }]),
+      strk20PrepareInvoke: jest.fn().mockResolvedValue({}),
+      strk20InvokeTransaction: jest.fn().mockResolvedValue({ transaction_hash: '0xabc' }),
+    };
+    await configured.getPrivateBalances(wallet, ['0x1']);
+    await configured.shield(wallet, '1', '0x1');
+    await configured.unshield(wallet, '0.5', '0x2', '0x1');
+    await configured.privateTransfer(wallet, '2', '0x2', '0x1');
+    expect(wallet.strk20Balances).toHaveBeenCalledWith(['0x1']);
+    expect(wallet.strk20InvokeTransaction).toHaveBeenCalledTimes(3);
+  });
+
+  it.each(['0.10.3', '0.10.4-rc.1', '0.11.0', '1.0.0'])('accepts supported spec %s', (version) => {
+    expect(supportsStrk20Spec(version)).toBe(true);
   });
 
   it.each(['0', '-1', 'NaN', '1.0000000000000000001'])('rejects invalid amount %s', (amount) => {

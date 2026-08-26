@@ -40,10 +40,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - name: Build Client
+      - name: Test & Build Client
         run: |
           cd client1
           npm ci || npm install
+          npm run typecheck
+          npm test
           npm run build
 
   sdk:

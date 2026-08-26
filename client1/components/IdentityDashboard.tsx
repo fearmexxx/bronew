@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Shield, ShieldCheck, Cpu, Wallet, UserCheck, Key, Copy, Check, Plus, RefreshCw, ChevronDown, Star, X, Bot, Zap, ArrowUpRight } from 'lucide-react';
 import { shortString, CallData, RpcProvider } from 'starknet';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import { provider, STRK_TOKEN_ADDRESS, IDENTITY_CONTRACT_ADDRESS, voyagerScanBaseUrl } from '../src/constants';
 import { useBns } from '../src/hooks/useBns';
 import { toast } from 'react-hot-toast';
@@ -29,8 +29,6 @@ export const IdentityDashboard: React.FC<IdentityDashboardProps> = ({ walletAddr
   const [loading, setLoading] = useState(false);
   const [isUpdatingPrimary, setIsUpdatingPrimary] = useState(false);
   const [strkBalance, setStrkBalance] = useState<string>('0.00 STRK');
-  const [shieldedBalance, setShieldedBalance] = useState<string>('0.00 STRK');
-  const [isPrivacyActive, setIsPrivacyActive] = useState<boolean>(true);
   const [primaryDomain, setPrimaryDomain] = useState<string>('');
   const [ownedDomains, setOwnedDomains] = useState<string[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -45,7 +43,7 @@ export const IdentityDashboard: React.FC<IdentityDashboardProps> = ({ walletAddr
   const [isRegisteringAgent, setIsRegisteringAgent] = useState(false);
   const [agentTxHash, setAgentTxHash] = useState<string | null>(null);
 
-  const { account, isConnected } = useAccount();
+  const { account, isConnected, isPrivacyCapable } = useAccount();
   const { getUserDomains, getPrimaryDomain, setPrimaryDomain: setOnChainPrimaryDomain } = useBns();
 
   const fetchOnChainData = useCallback(async () => {
@@ -123,30 +121,7 @@ export const IdentityDashboard: React.FC<IdentityDashboardProps> = ({ walletAddr
         }
       }
 
-      // 4. Fetch IdentityContract state
-      try {
-        const idDetails: any = await provider.callContract({
-          contractAddress: IDENTITY_CONTRACT_ADDRESS,
-          entrypoint: 'get_identity_details_of',
-          calldata: [walletAddress],
-        }, 'latest');
-
-        let detailsArr: string[] = [];
-        if (Array.isArray(idDetails)) detailsArr = idDetails;
-        else if (idDetails?.result) detailsArr = idDetails.result;
-
-        if (detailsArr.length >= 3) {
-          setIsPrivacyActive(detailsArr[1] === '0x1' || detailsArr[1] === '1');
-          const sLow = BigInt(detailsArr[2]);
-          const sHigh = BigInt(detailsArr[3] || '0x0');
-          const sTotal = (sHigh << 128n) + sLow;
-          setShieldedBalance(`${(Number(sTotal) / 1e18).toFixed(2)} STRK`);
-        }
-      } catch {
-        setShieldedBalance('0.00 STRK');
-      }
-
-      // Load agents (default + stored)
+      // 4. Load agents (default + stored)
       const baseDomain = currentPrimary || (decodedList[0] ? decodedList[0] : 'identity');
       const savedAgents = localStorage.getItem(`agents_${walletAddress}`);
       if (savedAgents) {
@@ -374,8 +349,8 @@ export const IdentityDashboard: React.FC<IdentityDashboardProps> = ({ walletAddr
             <span>STRK20 PRIVACY</span>
             <Shield className="w-4 h-4 text-orange-400" />
           </div>
-          <p className="text-2xl font-bold text-white">{isPrivacyActive ? 'Active' : 'Disabled'}</p>
-          <p className="text-xs text-orange-400/80">STRK Escrow Routing</p>
+          <p className="text-2xl font-bold text-white">{isPrivacyCapable ? 'Ready' : 'Wallet needed'}</p>
+          <p className="text-xs text-orange-400/80">Wallet API v0.10.3+</p>
         </div>
 
         <div className="p-5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-2 backdrop-blur-md">

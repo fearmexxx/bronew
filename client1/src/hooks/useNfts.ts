@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useAccount } from "@starknet-react/core";
+import { useAccount } from "../starknet/StarknetProvider";
 import { shortString } from "starknet";
 import { useBns } from "./useBns";
 import { generateGeneratedAvatar } from "../utils/avatar";

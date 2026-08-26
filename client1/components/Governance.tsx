@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useBns } from '../src/hooks/useBns';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import { toast } from 'react-hot-toast';
 
 const PARAM_NAMES: Record<number, string> = {

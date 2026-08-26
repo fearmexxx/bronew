@@ -6,7 +6,7 @@ import ReferralDashboard from './ReferralDashboard';
 import Governance from './Governance';
 import EditProfileModal from './EditProfileModal';
 import { useBns } from '../src/hooks/useBns';
-import { useAccount } from '@starknet-react/core';
+import { useAccount } from '../src/starknet/StarknetProvider';
 import { generateGeneratedAvatar } from '../src/utils/avatar';
 
 const UserIcon: React.FC<{ className?: string }> = ({ className }) => (

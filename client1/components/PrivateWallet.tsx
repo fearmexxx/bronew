@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, CheckCircle } from 'lucide-react';
-import { useAccount } from '@starknet-react/core';
-import { CallData, shortString, RpcProvider } from 'starknet';
-import { IDENTITY_CONTRACT_ADDRESS, STRK_TOKEN_ADDRESS, BNS_CONTRACT_ADDRESS, provider, voyagerScanBaseUrl } from '../src/constants';
+import React, { useCallback, useEffect, useState } from "react";
+import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle } from "lucide-react";
+import { num, shortString } from "starknet";
+import type { WALLET_API } from "@starknet-io/types-js";
+import { useAccount } from "../src/starknet/StarknetProvider";
+import { STRK_TOKEN_ADDRESS, BNS_CONTRACT_ADDRESS, provider, voyagerScanBaseUrl } from "../src/constants";
+import { depositAction, parseTokenAmount, transferAction, withdrawAction } from "../src/strk20/actions";
 
 interface PrivateWalletProps {
   walletAddress: string | null;
@@ -10,442 +12,197 @@ interface PrivateWalletProps {
   initialRecipient?: string;
 }
 
-const parseStrkAmount = (amount: string): bigint => {
-  const normalized = amount.trim();
-  if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error('Enter a valid positive STRK amount.');
-  const [whole, fraction = ''] = normalized.split('.');
-  if (fraction.length > 18) throw new Error('STRK supports at most 18 decimal places.');
-  const value = BigInt(whole) * 10n ** 18n + BigInt((fraction + '0'.repeat(18)).slice(0, 18));
-  if (value <= 0n) throw new Error('Amount must be greater than zero.');
-  return value;
+const formatStrk = (amount: bigint): string => {
+  const whole = amount / 10n ** 18n;
+  const fraction = (amount % 10n ** 18n).toString().padStart(18, "0").replace(/0+$/, "");
+  return fraction ? `${whole}.${fraction.slice(0, 6)}` : whole.toString();
+};
+
+const privacyError = (error: any): string => {
+  const message = error?.message || error?.toString?.() || String(error);
+  if (/NOT_REGISTERED/i.test(message)) {
+    return "This wallet is not registered with the STRK20 privacy pool. Open its privacy panel and complete registration, then retry.";
+  }
+  if (/not supported|method not found|unsupported/i.test(message)) {
+    return "This wallet does not expose STRK20 Wallet API v0.10.3. Connect a privacy-enabled Ready wallet.";
+  }
+  return message;
 };
 
 export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, initialRecipient }) => {
-  const [activeTab, setActiveTab] = useState<'shield' | 'unshield' | 'send'>(initialRecipient ? 'send' : 'shield');
-  const [shieldAmount, setShieldAmount] = useState('10');
-  const [unshieldAmount, setUnshieldAmount] = useState('5');
-  const [sendToDomain, setSendToDomain] = useState(initialRecipient || 'alice.real');
-  const [sendAmount, setSendAmount] = useState('5');
+  const [activeTab, setActiveTab] = useState<"shield" | "unshield" | "send">(initialRecipient ? "send" : "shield");
+  const [shieldAmount, setShieldAmount] = useState("1");
+  const [unshieldAmount, setUnshieldAmount] = useState("1");
+  const [sendToDomain, setSendToDomain] = useState(initialRecipient || "alice.real");
+  const [sendAmount, setSendAmount] = useState("1");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [shieldedOnChainBalance, setShieldedOnChainBalance] = useState<string>('0.00 STRK');
-  const [currentShieldedWei, setCurrentShieldedWei] = useState<bigint>(0n);
+  const [privateBalance, setPrivateBalance] = useState<bigint>(0n);
+  const { account, isConnected, isPrivacyCapable, supportedSpecs } = useAccount();
 
-  const { account, isConnected } = useAccount();
-
-  // Sync initialRecipient when parent re-renders with a new contact target
   useEffect(() => {
     if (initialRecipient) {
       setSendToDomain(initialRecipient);
-      setActiveTab('send');
+      setActiveTab("send");
     }
   }, [initialRecipient]);
 
-  // Load real on-chain shielded state from deployed IdentityContract
-  const loadShieldedState = async () => {
-    if (!walletAddress) {
-      setShieldedOnChainBalance('0.00 STRK');
-      setCurrentShieldedWei(0n);
+  const loadPrivateBalance = useCallback(async () => {
+    if (!account || !isPrivacyCapable) {
+      setPrivateBalance(0n);
       return;
     }
-
+    setIsRefreshing(true);
     try {
-      const res: any = await provider.callContract({
-        contractAddress: IDENTITY_CONTRACT_ADDRESS,
-        entrypoint: 'get_identity_details_of',
-        calldata: [walletAddress],
-      }, 'latest');
-
-      let arr: string[] = [];
-      if (Array.isArray(res)) arr = res;
-      else if (res?.result) arr = res.result;
-
-      if (arr.length >= 3) {
-        const sLow = BigInt(arr[2]);
-        const sHigh = BigInt(arr[3] || '0x0');
-        const total = (sHigh << 128n) + sLow;
-        setCurrentShieldedWei(total);
-        setShieldedOnChainBalance(`${(Number(total) / 1e18).toFixed(2)} STRK`);
-      }
-    } catch (e) {
-      console.warn('Could not read shielded balance:', e);
+      const balances = await account.strk20Balances([STRK_TOKEN_ADDRESS]);
+      const entry: any = balances?.[0];
+      setPrivateBalance(entry ? num.toBigInt(entry.balance ?? entry.amount ?? entry[1] ?? 0) : 0n);
+    } catch (error: any) {
+      setStatusMsg(privacyError(error));
+      setPrivateBalance(0n);
+    } finally {
+      setIsRefreshing(false);
     }
-  };
+  }, [account, isPrivacyCapable]);
 
   useEffect(() => {
-    loadShieldedState();
-  }, [walletAddress]);
+    void loadPrivateBalance();
+  }, [loadPrivateBalance, walletAddress]);
 
-  // Cumulative Shield: approves escrow; deposit() atomically pulls and records STRK.
-  const handleShieldOnChain = async () => {
-    if (IDENTITY_CONTRACT_ADDRESS === '0x0') {
-      setStatusMsg('Secured escrow is awaiting deployment. Transactions are temporarily disabled.');
-      return;
-    }
-    if (!isConnected || !account) {
-      setStatusMsg('Please connect your Starknet wallet first.');
-      return;
-    }
-
-    setIsProcessing(true);
-    setStatusMsg('Signing an on-chain STRK deposit to the escrow pool...');
-    setTxHash(null);
-
-    try {
-      const depositWei = parseStrkAmount(shieldAmount);
-
-      const depLow = (depositWei & ((1n << 128n) - 1n)).toString();
-      const depHigh = (depositWei >> 128n).toString();
-
-      // Multicall: 1. Approve escrow, 2. Enable privacy, 3. Pull and record deposit
-      const tx = await account.execute([
-        {
-          contractAddress: STRK_TOKEN_ADDRESS,
-          entrypoint: 'approve',
-          calldata: CallData.compile({
-            spender: IDENTITY_CONTRACT_ADDRESS,
-            amount: { low: depLow, high: depHigh },
-          }),
-        },
-        {
-          contractAddress: IDENTITY_CONTRACT_ADDRESS,
-          entrypoint: 'enable_privacy',
-          calldata: CallData.compile({ enabled: true }),
-        },
-        {
-          contractAddress: IDENTITY_CONTRACT_ADDRESS,
-          entrypoint: 'deposit',
-          calldata: CallData.compile({ amount: { low: depLow, high: depHigh } }),
-        },
-      ]);
-
-      setStatusMsg(`Transaction broadcasted! Waiting for Sepolia block confirmation...`);
-      setTxHash(tx.transaction_hash);
-
-      await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
-      const expectedTotal = currentShieldedWei + depositWei;
-      setStatusMsg(`Deposited +${shieldAmount} STRK into the escrow pool. Total balance: ${(Number(expectedTotal) / 1e18).toFixed(2)} STRK`);
-      await loadShieldedState();
-    } catch (err: any) {
-      console.error('Shield tx error:', err);
-      setStatusMsg(`Transaction failed or rejected: ${err.message || err}`);
-    } finally {
-      setIsProcessing(false);
-    }
+  const submit = async (actions: WALLET_API.STRK20_ACTION[], pendingMessage: string) => {
+    if (!isConnected || !account) throw new Error("Connect a Starknet wallet first.");
+    if (!isPrivacyCapable) throw new Error("Connect a wallet supporting STRK20 Wallet API v0.10.3.");
+    setStatusMsg(pendingMessage);
+    const response = await account.strk20InvokeTransaction(actions);
+    setTxHash(response.transaction_hash);
+    setStatusMsg("Privacy proof submitted. Waiting for Starknet confirmation…");
+    await provider.waitForTransaction(response.transaction_hash, { retries: 400, retryInterval: 3000 });
+    await loadPrivateBalance();
+    return response.transaction_hash;
   };
 
-  // Unshield: Contract's withdraw() sends STRK back to caller and decrements shielded balance
-  const handleUnshieldOnChain = async () => {
-    if (IDENTITY_CONTRACT_ADDRESS === '0x0') {
-      setStatusMsg('Secured escrow is awaiting deployment. Transactions are temporarily disabled.');
-      return;
-    }
-    if (!isConnected || !account) {
-      setStatusMsg('Please connect your Starknet wallet first.');
-      return;
-    }
-
-    let withdrawWei: bigint;
+  const runAction = async (operation: () => Promise<void>) => {
+    setIsProcessing(true);
+    setStatusMsg(null);
+    setTxHash(null);
     try {
-      withdrawWei = parseStrkAmount(unshieldAmount);
+      await operation();
     } catch (error: any) {
-      setStatusMsg(error.message);
-      return;
-    }
-    if (withdrawWei > currentShieldedWei) {
-      setStatusMsg('Cannot unshield more than current shielded balance.');
-      return;
-    }
-
-    setIsProcessing(true);
-    setStatusMsg('Withdrawing STRK from the on-chain escrow pool...');
-    setTxHash(null);
-
-    try {
-      const wLow = (withdrawWei & ((1n << 128n) - 1n)).toString();
-      const wHigh = (withdrawWei >> 128n).toString();
-
-      const tx = await account.execute([
-        {
-          contractAddress: IDENTITY_CONTRACT_ADDRESS,
-          entrypoint: 'withdraw',
-          calldata: CallData.compile({ amount: { low: wLow, high: wHigh } }),
-        },
-      ]);
-
-      setStatusMsg(`Unshield transaction broadcasted! Waiting for confirmation...`);
-      setTxHash(tx.transaction_hash);
-
-      await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
-      setStatusMsg(`Successfully unshielded ${unshieldAmount} STRK back to your public wallet.`);
-      await loadShieldedState();
-    } catch (err: any) {
-      console.error('Unshield error:', err);
-      setStatusMsg(`Transaction failed: ${err.message || err}`);
+      setStatusMsg(privacyError(error));
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Private Send: Resolves .real domain then calls contract's private_send() to transfer STRK
-  const handlePrivateSendOnChain = async () => {
-    if (IDENTITY_CONTRACT_ADDRESS === '0x0') {
-      setStatusMsg('Secured escrow is awaiting deployment. Transactions are temporarily disabled.');
-      return;
-    }
-    if (!isConnected || !account) {
-      setStatusMsg('Please connect your Starknet wallet first.');
-      return;
-    }
+  const handleShield = () => runAction(async () => {
+    const amount = parseTokenAmount(shieldAmount);
+    await submit(
+      [depositAction(STRK_TOKEN_ADDRESS, amount)],
+      "Confirm shielding in your privacy-enabled wallet. Proof generation can take several minutes…",
+    );
+    setStatusMsg(`Shielded ${shieldAmount} STRK into the STRK20 privacy pool.`);
+  });
 
-    let sendWei: bigint;
-    try {
-      sendWei = parseStrkAmount(sendAmount);
-    } catch (error: any) {
-      setStatusMsg(error.message);
-      return;
-    }
-    if (sendWei > currentShieldedWei) {
-      setStatusMsg('Insufficient shielded balance. Shield more STRK first.');
-      return;
-    }
+  const handleUnshield = () => runAction(async () => {
+    if (!walletAddress) throw new Error("Connect a wallet first.");
+    const amount = parseTokenAmount(unshieldAmount);
+    if (amount > privateBalance) throw new Error("Cannot unshield more than your private STRK balance.");
+    await submit(
+      [withdrawAction(STRK_TOKEN_ADDRESS, amount, walletAddress)],
+      "Confirm the STRK20 withdrawal in your wallet. The public recipient will be visible…",
+    );
+    setStatusMsg(`Unshielded ${unshieldAmount} STRK to your public wallet.`);
+  });
 
-    setIsProcessing(true);
-    setStatusMsg(`Resolving ${sendToDomain} on-chain...`);
-    setTxHash(null);
+  const handlePrivateSend = () => runAction(async () => {
+    const amount = parseTokenAmount(sendAmount);
+    if (amount > privateBalance) throw new Error("Insufficient private STRK balance.");
+    const domain = sendToDomain.trim().toLowerCase().replace(/\.real$/, "");
+    if (!domain || domain.length > 31) throw new Error("Enter a valid .real name.");
+    setStatusMsg(`Resolving ${domain}.real…`);
+    const resolved = await provider.callContract({
+      contractAddress: BNS_CONTRACT_ADDRESS,
+      entrypoint: "resolve_domain",
+      calldata: [shortString.encodeShortString(domain)],
+    });
+    const recipient = resolved[0];
+    if (!recipient || num.toBigInt(recipient) === 0n) throw new Error(`${domain}.real is not registered.`);
+    await submit(
+      [transferAction(STRK_TOKEN_ADDRESS, amount, recipient)],
+      `Confirm the private transfer to ${domain}.real. Sender, recipient, and amount are protected by STRK20…`,
+    );
+    setStatusMsg(`Privately transferred ${sendAmount} STRK to ${domain}.real.`);
+  });
 
-    try {
-      // Resolve the .real domain to an address via BNS contract
-      const domainClean = sendToDomain.replace('.real', '');
-      const domainFelt = shortString.encodeShortString(domainClean);
-
-      const resolveResult = await provider.callContract({
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: 'resolve_domain',
-        calldata: [domainFelt],
-      });
-
-      const recipientAddress = resolveResult[0];
-      if (!recipientAddress || recipientAddress === '0x0') {
-        setStatusMsg(`Could not resolve ${sendToDomain} — domain not found on-chain.`);
-        setIsProcessing(false);
-        return;
-      }
-
-      setStatusMsg(`Resolved ${sendToDomain} → ${recipientAddress.slice(0, 10)}... Sending ${sendAmount} STRK...`);
-
-      const sLow = (sendWei & ((1n << 128n) - 1n)).toString();
-      const sHigh = (sendWei >> 128n).toString();
-
-      const tx = await account.execute([
-        {
-          contractAddress: IDENTITY_CONTRACT_ADDRESS,
-          entrypoint: 'private_send',
-          calldata: CallData.compile({
-            recipient: recipientAddress,
-            amount: { low: sLow, high: sHigh },
-          }),
-        },
-      ]);
-
-      setStatusMsg(`Domain-routed payment transaction submitted!`);
-      setTxHash(tx.transaction_hash);
-
-      await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
-      setStatusMsg(`Payment of ${sendAmount} STRK sent to ${sendToDomain}.`);
-      await loadShieldedState();
-    } catch (err: any) {
-      console.error('Send error:', err);
-      setStatusMsg(`Transaction failed: ${err.message || err}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  const canTransact = Boolean(isConnected && account && isPrivacyCapable && !isProcessing);
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
-      {/* Header */}
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-          <Shield className="w-4 h-4" />
-          <span>STRK On-Chain Escrow</span>
+          <Lock className="w-3.5 h-3.5" /> STRK20 Wallet API v0.10.3
         </div>
-        <h2 className="text-3xl font-bold font-display text-white">Private Wallet & Shielded Pool</h2>
-        <p className="text-gray-400 text-sm max-w-xl mx-auto">
-          Transparent on-chain escrow inside your identity layer. Deposit assets, withdraw, and send domain-routed payments directly to{' '}
-          <span className="text-orange-400">.real</span> identities.
+        <h2 className="text-3xl font-bold font-display text-white">Private STRK Wallet</h2>
+        <p className="text-gray-400 max-w-2xl mx-auto">
+          Encrypted-note balances and STARK-proven transfers managed by your privacy-enabled wallet. Brother ID never receives your viewing key.
         </p>
       </div>
 
-      {/* Main Card */}
-      <div className="rounded-3xl bg-white/[0.02] border border-white/10 p-8 backdrop-blur-xl shadow-2xl space-y-6">
-        {/* On-chain Shielded Balance Display */}
-        <div className="p-5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
+      {!isPrivacyCapable && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3 text-sm text-amber-100">
+          <AlertTriangle className="w-5 h-5 flex-none mt-0.5" />
           <div>
-            <span className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">
-              Total On-Chain Shielded Pool Balance
-            </span>
-            <p className="text-3xl font-bold text-white font-mono mt-0.5">{shieldedOnChainBalance}</p>
+            <p className="font-semibold">STRK20-compatible wallet required</p>
+            <p className="text-amber-200/80 mt-1">
+              {isConnected
+                ? `Connected wallet specs: ${supportedSpecs.join(", ") || "not reported"}. Use Ready with Wallet API v0.10.3 enabled.`
+                : "Connect Ready or another wallet that exposes the STRK20 Wallet API on Sepolia."}
+            </p>
           </div>
-          <a
-            href={`${voyagerScanBaseUrl}/contract/${IDENTITY_CONTRACT_ADDRESS}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-xs text-gray-400 hover:text-emerald-400 flex items-center gap-1.5 transition-colors p-2 rounded-xl bg-white/5 border border-white/10"
-          >
-            <span>View Identity Pool Contract</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
         </div>
+      )}
 
-        {/* Tab Selection */}
-        <div className="flex rounded-xl bg-white/5 p-1 border border-white/5 max-w-md mx-auto">
-          <button
-            onClick={() => setActiveTab('shield')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-              activeTab === 'shield'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Shield (Deposit)
-          </button>
-          <button
-            onClick={() => setActiveTab('unshield')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-              activeTab === 'unshield'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Unshield (Withdraw)
-          </button>
-          <button
-            onClick={() => setActiveTab('send')}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all cursor-pointer ${
-              activeTab === 'send'
-                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Private Send
+      <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-gray-500">Private STRK balance</p>
+            <p className="text-3xl font-mono font-bold text-white mt-1">{formatStrk(privateBalance)} STRK</p>
+          </div>
+          <button onClick={() => void loadPrivateBalance()} disabled={!isPrivacyCapable || isRefreshing} className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40">
+            <RefreshCw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
           </button>
         </div>
-
-        {/* Tab 1: Shield (Deposit) */}
-        {activeTab === 'shield' && (
-          <div className="space-y-5 max-w-md mx-auto">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-300">Amount to Shield into Pool (STRK)</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={shieldAmount}
-                  onChange={(e) => setShieldAmount(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-orange-500/50"
-                  placeholder="10"
-                />
-                <span className="absolute right-4 top-3.5 text-xs text-gray-400 font-bold">STRK</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleShieldOnChain}
-              disabled={isProcessing}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 text-white font-semibold transition-all shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-              <span>{isProcessing ? 'Confirming on Sepolia...' : 'Shield Assets to Pool (Cumulative TX)'}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Tab 2: Unshield (Withdraw) */}
-        {activeTab === 'unshield' && (
-          <div className="space-y-5 max-w-md mx-auto">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-300">Amount to Unshield to Public Wallet (STRK)</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={unshieldAmount}
-                  onChange={(e) => setUnshieldAmount(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-orange-500/50"
-                  placeholder="5"
-                />
-                <span className="absolute right-4 top-3.5 text-xs text-gray-400 font-bold">STRK</span>
-              </div>
-            </div>
-
-            <button
-              onClick={handleUnshieldOnChain}
-              disabled={isProcessing}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold transition-all shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Unlock className="w-4 h-4" />}
-              <span>{isProcessing ? 'Unshielding on Sepolia...' : 'Unshield Back to Wallet (Real TX)'}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Tab 3: Private Send */}
-        {activeTab === 'send' && (
-          <div className="space-y-5 max-w-md mx-auto">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-300">Recipient Identity (.real)</label>
-              <input
-                type="text"
-                value={sendToDomain}
-                onChange={(e) => setSendToDomain(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-orange-500/50 font-mono"
-                placeholder="alice.real"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-gray-300">Amount (STRK)</label>
-              <input
-                type="number"
-                value={sendAmount}
-                onChange={(e) => setSendAmount(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-lg font-mono focus:outline-none focus:border-orange-500/50"
-                placeholder="5"
-              />
-            </div>
-
-            <button
-              onClick={handlePrivateSendOnChain}
-              disabled={isProcessing}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-semibold transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isProcessing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              <span>{isProcessing ? 'Broadcasting Tx...' : 'Send Private Payment from Pool'}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Notification Banner & Voyager Explorer Link */}
-        {statusMsg && (
-          <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-300 text-xs font-mono text-center space-y-2 animate-fade-in">
-            <p>{statusMsg}</p>
-            {txHash && (
-              <div className="flex items-center justify-center gap-1.5 text-emerald-400 hover:underline">
-                <CheckCircle className="w-3.5 h-3.5" />
-                <a
-                  href={`${voyagerScanBaseUrl}/tx/${txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1"
-                >
-                  <span>View TX on Voyager Explorer ({txHash.slice(0, 10)}...{txHash.slice(-6)})</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-            )}
-          </div>
-        )}
       </div>
+
+      <div className="flex rounded-2xl bg-white/[0.03] border border-white/10 p-1">
+        {(["shield", "send", "unshield"] as const).map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 rounded-xl capitalize font-semibold transition ${activeTab === tab ? "bg-orange-500 text-black" : "text-gray-400 hover:text-white"}`}>
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      <div className="rounded-3xl border border-white/10 bg-[#0d0d0d] p-6 sm:p-8 space-y-6">
+        {activeTab === "shield" && <>
+          <label className="block text-sm text-gray-300">STRK to shield<input value={shieldAmount} onChange={(e) => setShieldAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
+          <button onClick={handleShield} disabled={!canTransact} className="w-full py-4 rounded-xl bg-orange-500 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Shield className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Shield with STRK20"}</button>
+        </>}
+        {activeTab === "send" && <>
+          <label className="block text-sm text-gray-300">Recipient .real name<input value={sendToDomain} onChange={(e) => setSendToDomain(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white" /></label>
+          <label className="block text-sm text-gray-300">Private STRK amount<input value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
+          <button onClick={handlePrivateSend} disabled={!canTransact} className="w-full py-4 rounded-xl bg-emerald-400 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Send className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Private transfer"}</button>
+        </>}
+        {activeTab === "unshield" && <>
+          <label className="block text-sm text-gray-300">STRK to unshield<input value={unshieldAmount} onChange={(e) => setUnshieldAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
+          <button onClick={handleUnshield} disabled={!canTransact} className="w-full py-4 rounded-xl bg-white text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Unlock className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Unshield to public wallet"}</button>
+        </>}
+      </div>
+
+      {statusMsg && <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-gray-200">{statusMsg}</div>}
+      {txHash && <a href={`${voyagerScanBaseUrl}/tx/${txHash}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-sm text-orange-400 hover:text-orange-300">View privacy transaction <ExternalLink className="w-4 h-4" /></a>}
+      <p className="text-xs text-center text-gray-600">The former Brother Identity escrow remains deployed for historical withdrawals but is not used by this STRK20 interface.</p>
     </div>
   );
 };
