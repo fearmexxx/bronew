@@ -3,6 +3,7 @@ import { Abi, Contract, RpcProvider, shortString } from "starknet";
 import { toast } from "react-hot-toast";
 import { useAccount } from "../starknet/StarknetProvider";
 import { BNS_CONTRACT_ADDRESS, BROTHER_TOKEN_ADDRESS, provider } from "../constants";
+import { callLatest } from "../starknet/contractView";
 
 const AUCTION_ABI: Abi = [
   { type: "function", name: "create_auction", inputs: [
@@ -127,7 +128,7 @@ export function useAuction() {
 
     const id = toast.loading("Checking allowance...");
     try {
-      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS, { blockIdentifier: 'latest' });
+      const currentAllowance: any = await callLatest(tokenContract, 'allowance', [address, BNS_CONTRACT_ADDRESS]);
       const allowanceBig = u256ToBigInt(currentAllowance);
 
       const calls: any[] = [];
@@ -224,7 +225,7 @@ export function useAuction() {
     console.log(`getAuctionDetails: Encoded domain "${domainName}" to felt: ${domain}`);
     
     try {
-      const result: any = await contract.get_auction(domain, { blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_auction', [domain]);
       console.log(`getAuctionDetails: Raw result for ${domainName}:`, result);
       console.log(`getAuctionDetails: Result type:`, typeof result, "Is array:", Array.isArray(result));
       
@@ -308,7 +309,7 @@ export function useAuction() {
 
     try {
       console.log("fetchActiveAuctionDomains: Calling contract.get_active_auction_domains()");
-      const result: any = await contract.get_active_auction_domains({ blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_active_auction_domains');
       console.log("fetchActiveAuctionDomains: Raw result:", result);
       console.log("fetchActiveAuctionDomains: Result type:", typeof result);
       console.log("fetchActiveAuctionDomains: Is array?", Array.isArray(result));

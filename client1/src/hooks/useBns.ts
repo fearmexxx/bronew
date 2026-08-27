@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useMemo } from "react";
-import { Abi, Contract, RpcProvider, shortString, hash } from "starknet";
+import { Abi, Contract, RpcProvider, shortString, hash, validateAndParseAddress } from "starknet";
 import { toast } from "react-hot-toast";
 import { useAccount } from "../starknet/StarknetProvider";
 import { BNS_CONTRACT_ADDRESS, BROTHER_TOKEN_ADDRESS, provider } from "../constants";
+import { callLatest } from "../starknet/contractView";
 
 const BNS_ABI: Abi = [
   { type: "function", name: "is_domain_available", inputs: [{ name: "domain", type: "core::felt252" }], outputs: [{ type: "core::bool" }], state_mutability: "view" },
@@ -168,7 +169,7 @@ export function useBns() {
   const isAvailable = useCallback(async (name: string) => {
     if (!name || name.length < 4) return false;
     const domain = shortString.encodeShortString(name);
-    const res: any = await contract.is_domain_available(domain, { blockIdentifier: 'latest' });
+    const res: any = await callLatest(contract, 'is_domain_available', [domain]);
     return normalizeBool(res);
   }, [contract]);
 
@@ -176,7 +177,7 @@ export function useBns() {
     if (!name || years <= 0) return "0";
     const domain = shortString.encodeShortString(name);
     try {
-      const price: any = await contract.get_domain_price(domain, years, { blockIdentifier: 'latest' });
+      const price: any = await callLatest(contract, 'get_domain_price', [domain, years]);
       if (typeof price === 'bigint') {
         return "0x" + price.toString(16);
       } else if (typeof price === 'string') {
@@ -277,7 +278,7 @@ export function useBns() {
   const getDomainInfo = useCallback(async (domainName: string) => {
     try {
       const domain = shortString.encodeShortString(domainName);
-      const result: any = await contract.get_domain_info(domain, { blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_domain_info', [domain]);
       
       if (!result) {
         return null;
@@ -392,7 +393,7 @@ export function useBns() {
 
       let isVerified = false;
       try {
-        const verifiedRes: any = await contract.is_verified(domain, { blockIdentifier: 'latest' });
+        const verifiedRes: any = await callLatest(contract, 'is_verified', [domain]);
         isVerified = normalizeBool(verifiedRes);
       } catch { /* ignore */ }
 
@@ -416,12 +417,15 @@ export function useBns() {
     if (!isConnected || !account || !address) throw new Error("Wallet not connected");
 
     const domain = shortString.encodeShortString(name);
-    const priceU256: any = await contract.get_domain_price(domain, years, { blockIdentifier: 'latest' });
+    const referrerAddress = referrer?.trim()
+      ? validateAndParseAddress(referrer.trim())
+      : "0x0";
+    const priceU256: any = await callLatest(contract, 'get_domain_price', [domain, years]);
     const priceBig = u256ToBigInt(priceU256);
 
     const id = toast.loading("Checking allowance...");
     try {
-      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS, { blockIdentifier: 'latest' });
+      const currentAllowance: any = await callLatest(tokenContract, 'allowance', [address, BNS_CONTRACT_ADDRESS]);
       const allowanceBig = u256ToBigInt(currentAllowance);
 
       const calls: any[] = [];
@@ -440,7 +444,7 @@ export function useBns() {
         address,
         false,
         false,
-        "0x0"  // referrer: no referrer by default
+        referrerAddress
       ]));
 
       if (records) {
@@ -457,8 +461,9 @@ export function useBns() {
 
       toast.loading("Registering domain...", { id });
       const tx = await account.execute(calls);
-
-      toast.success("Submitted!", { id });
+      toast.loading("Waiting for Starknet confirmation...", { id });
+      await (provider as RpcProvider).waitForTransaction(tx.transaction_hash);
+      toast.success("Domain registered!", { id });
       return tx?.transaction_hash as string | undefined;
     } catch (e: any) {
       toast.error(e?.message ?? "Transaction failed", { id });
@@ -485,13 +490,13 @@ export function useBns() {
     const domainInfo = await getDomainInfo(name);
     if (!domainInfo) throw new Error("Domain not found");
     
-    const priceU256: any = await contract.get_domain_price(domain, years, { blockIdentifier: 'latest' });
+    const priceU256: any = await callLatest(contract, 'get_domain_price', [domain, years]);
     const priceBig = u256ToBigInt(priceU256);
     const renewalPriceBig = priceBig / BigInt(2);
 
     const id = toast.loading("Checking allowance...");
     try {
-      const currentAllowance: any = await tokenContract.allowance(address, BNS_CONTRACT_ADDRESS, { blockIdentifier: 'latest' });
+      const currentAllowance: any = await callLatest(tokenContract, 'allowance', [address, BNS_CONTRACT_ADDRESS]);
       const allowanceBig = u256ToBigInt(currentAllowance);
 
       const calls: any[] = [];
@@ -547,7 +552,7 @@ export function useBns() {
     try {
       const domain = shortString.encodeShortString(name.replace('.real', ''));
       const keyFelt = shortString.encodeShortString(key);
-      const result: any = await contract.get_text(domain, keyFelt, { blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_text', [domain, keyFelt]);
       return safeDecode(result);
     } catch (e) {
       return "";
@@ -557,7 +562,7 @@ export function useBns() {
   const getFullProfile = useCallback(async (name: string) => {
     try {
       const domain = shortString.encodeShortString(name.replace('.real', ''));
-      const fullProfile: any = await contract.get_full_profile(domain, { blockIdentifier: 'latest' });
+      const fullProfile: any = await callLatest(contract, 'get_full_profile', [domain]);
       const nickname = await getText(name, 'nickname');
       
       return {
@@ -581,7 +586,7 @@ export function useBns() {
       if (!cleanName || cleanName.length > 31) return null;
       
       const domain = shortString.encodeShortString(cleanName);
-      const result: any = await contract.get_domain_svg(domain, { blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_domain_svg', [domain]);
       return result; // Result is ByteArray
     } catch (e) {
       console.error("Error fetching SVG:", e);
@@ -591,7 +596,7 @@ export function useBns() {
 
   const getReferralEarnings = useCallback(async (userAddress: string) => {
     try {
-      const result: any = await contract.get_referral_earnings(userAddress, { blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_referral_earnings', [userAddress]);
       return u256ToHex(result);
     } catch (e) {
       console.error("Error fetching referral earnings:", e);
@@ -636,7 +641,7 @@ export function useBns() {
 
   const getParamProposalCount = useCallback(async () => {
     try {
-      const count: any = await contract.get_param_proposal_count({ blockIdentifier: 'latest' });
+      const count: any = await callLatest(contract, 'get_param_proposal_count');
       return u256ToBigInt(count).toString();
     } catch { return "0"; }
   }, [contract]);
@@ -644,8 +649,7 @@ export function useBns() {
   const getParamProposal = useCallback(async (id: string) => {
     try {
       const idBig = BigInt(id);
-      const { low, high } = bigIntToU256Parts(idBig);
-      const result: any = await contract.get_param_proposal(low, high, { blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_param_proposal', [idBig]);
       return {
         paramId: Number(result.param_id),
         value: u256ToBigInt(result.value),
@@ -660,14 +664,14 @@ export function useBns() {
 
   const getBasePrice = useCallback(async () => {
     try {
-      const price: any = await contract.get_base_price({ blockIdentifier: 'latest' });
+      const price: any = await callLatest(contract, 'get_base_price');
       return u256ToHex(price);
     } catch { return "0x0"; }
   }, [contract]);
 
   const getTreasury = useCallback(async () => {
     try {
-      const addr: any = await contract.get_treasury({ blockIdentifier: 'latest' });
+      const addr: any = await callLatest(contract, 'get_treasury');
       return "0x" + BigInt(addr).toString(16);
     } catch { return "0x0"; }
   }, [contract]);
@@ -760,7 +764,7 @@ export function useBns() {
 
   const getPrimaryDomain = useCallback(async (userAddress: string) => {
     try {
-      const result: any = await contract.get_primary_domain(userAddress, { blockIdentifier: 'latest' });
+      const result: any = await callLatest(contract, 'get_primary_domain', [userAddress]);
       return safeDecode(result);
     } catch (e) {
       return "";

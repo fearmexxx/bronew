@@ -4,6 +4,7 @@ import AuctionList from './AuctionList';
 import StartAuctionModal from './StartAuctionModal';
 import TokenChart from './TokenChart';
 import { useBns } from '../src/hooks/useBns';
+import { toast } from 'react-hot-toast';
 
 const SearchIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6 text-gray-400"} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -107,6 +108,9 @@ const SearchBox: React.FC<SearchBoxProps> = ({ onViewProfile }) => {
             } catch {
                 setSearchResult({ domain: `${domainName}.real`, available: available });
             }
+        } catch (error: any) {
+            console.error('Domain search failed:', error);
+            toast.error('Domain search is temporarily unavailable. Please retry.');
         } finally {
             setIsLoading(false);
         }

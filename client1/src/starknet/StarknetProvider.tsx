@@ -55,6 +55,7 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [address, setAddress] = useState<string>();
   const [chainId, setChainId] = useState<string>();
   const [supportedSpecs, setSupportedSpecs] = useState<string[]>([]);
+  const [activeConnector, setActiveConnector] = useState<Connector>();
 
   useEffect(() => {
     const discovery = createStore({ eip1193Adapters: [] });
@@ -67,11 +68,10 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const connectAsync = async ({ connector }: { connector: Connector }) => {
     const walletAccount = await WalletAccountV6.connect(walletProvider, connector.wallet);
-    const accounts = await walletV6.requestAccounts(connector.wallet);
-    if (!Array.isArray(accounts) || !accounts[0]) {
+    if (!walletAccount.address) {
       throw new Error("The selected wallet did not return a Starknet account.");
     }
-    const nextAddress = validateAndParseAddress(accounts[0]);
+    const nextAddress = validateAndParseAddress(walletAccount.address);
     const [nextChainId, specs] = await Promise.all([
       walletV6.requestChainId(connector.wallet),
       walletV6.supportedSpecs(connector.wallet).catch(() => []),
@@ -83,6 +83,7 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setAddress(nextAddress);
     setChainId(nextChainId);
     setSupportedSpecs(specs.map(String));
+    setActiveConnector(connector);
     localStorage.setItem("last_wallet_connector", connector.id);
   };
 
@@ -91,8 +92,32 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setAddress(undefined);
     setChainId(undefined);
     setSupportedSpecs([]);
+    setActiveConnector(undefined);
     localStorage.removeItem("last_wallet_connector");
   };
+
+  useEffect(() => {
+    if (!activeConnector) return;
+    return walletV6.subscribeWalletEvent(activeConnector.wallet, (change: any) => {
+      const nextWalletAddress = change?.accounts?.[0]?.address;
+      if (change?.accounts && !nextWalletAddress) {
+        void disconnect();
+        return;
+      }
+      if (nextWalletAddress) setAddress(validateAndParseAddress(nextWalletAddress));
+      void Promise.all([
+        walletV6.requestChainId(activeConnector.wallet),
+        walletV6.supportedSpecs(activeConnector.wallet).catch(() => []),
+      ]).then(([nextChainId, specs]) => {
+        if (nextChainId !== constants.StarknetChainId.SN_SEPOLIA) {
+          void disconnect();
+          return;
+        }
+        setChainId(nextChainId);
+        setSupportedSpecs(specs.map(String));
+      });
+    });
+  }, [activeConnector]);
 
   const isPrivacyCapable = Boolean(
     account &&
