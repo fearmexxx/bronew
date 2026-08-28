@@ -21,7 +21,7 @@ const Hero: React.FC = () => (
         {/* Badge */}
         <div className="relative z-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-orange-200/80 text-sm font-medium tracking-wide mb-8 animate-fade-in backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
-            <span>Sovereign Identity Protocol v2 (Powered by STRK20 Privacy)</span>
+            <span>Brother ID Beta · STRK20 Privacy on Starknet</span>
         </div>
 
         {/* Main Text */}
@@ -30,8 +30,8 @@ const Hero: React.FC = () => (
                 BOOST YOUR<br /> REACH.
             </h1>
             <p className="max-w-2xl mx-auto text-gray-400 text-lg sm:text-xl font-light leading-relaxed tracking-wide">
-                Privacy-first identity infrastructure on Starknet for Humans & AI Agents. <br className="hidden sm:block" />
-                One .real identity to rule all your wallets and private assets.
+                Human-readable .real identities for private STRK transfers. <br className="hidden sm:block" />
+                Identity registration is on Sepolia; STRK20 payments support Starknet Mainnet.
             </p>
         </div>
     </div>

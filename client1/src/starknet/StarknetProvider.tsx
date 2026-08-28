@@ -2,19 +2,14 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { createStore } from "@starknet-io/get-starknet-discovery";
 import type { WalletWithStarknetFeatures } from "@starknet-io/get-starknet-wallet-standard/features";
 import {
-  RpcProvider,
   WalletAccountV6,
-  constants,
   validateAndParseAddress,
   walletV6,
 } from "starknet";
 import { supportsStrk20Spec } from "../strk20/actions";
+import { isSupportedChain, sepoliaProvider } from "../constants";
 
-const SEPOLIA_RPC_URL =
-  (import.meta as any).env?.VITE_STARKNET_RPC ||
-  "https://api.cartridge.gg/x/starknet/sepolia";
-
-export const walletProvider = new RpcProvider({ nodeUrl: SEPOLIA_RPC_URL });
+export const walletProvider = sepoliaProvider;
 
 export interface Connector {
   id: string;
@@ -33,6 +28,7 @@ interface StarknetContextValue {
   isPrivacyCapable: boolean;
   supportedSpecs: string[];
   connectAsync: (args: { connector: Connector }) => Promise<void>;
+  switchNetwork: (chainId: string) => Promise<void>;
   disconnect: () => Promise<void>;
 }
 
@@ -76,8 +72,8 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       walletV6.requestChainId(connector.wallet),
       walletV6.supportedSpecs(connector.wallet).catch(() => []),
     ]);
-    if (nextChainId !== constants.StarknetChainId.SN_SEPOLIA) {
-      throw new Error("Brother ID privacy beta currently requires Starknet Sepolia.");
+    if (!isSupportedChain(nextChainId)) {
+      throw new Error("Brother ID supports Starknet Mainnet and Sepolia.");
     }
     setAccount(walletAccount);
     setAddress(nextAddress);
@@ -85,6 +81,13 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setSupportedSpecs(specs.map(String));
     setActiveConnector(connector);
     localStorage.setItem("last_wallet_connector", connector.id);
+  };
+
+  const switchNetwork = async (nextChainId: string) => {
+    if (!activeConnector) throw new Error("Connect a wallet before changing networks.");
+    if (!isSupportedChain(nextChainId)) throw new Error("Unsupported Starknet network.");
+    await walletV6.switchStarknetChain(activeConnector.wallet, nextChainId);
+    setChainId(await walletV6.requestChainId(activeConnector.wallet));
   };
 
   const disconnect = async () => {
@@ -109,10 +112,7 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         walletV6.requestChainId(activeConnector.wallet),
         walletV6.supportedSpecs(activeConnector.wallet).catch(() => []),
       ]).then(([nextChainId, specs]) => {
-        if (nextChainId !== constants.StarknetChainId.SN_SEPOLIA) {
-          void disconnect();
-          return;
-        }
+        if (!isSupportedChain(nextChainId)) return;
         setChainId(nextChainId);
         setSupportedSpecs(specs.map(String));
       });
@@ -136,6 +136,7 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isPrivacyCapable,
       supportedSpecs,
       connectAsync,
+      switchNetwork,
       disconnect,
     }),
     [account, address, chainId, connectors, isPrivacyCapable, supportedSpecs],
@@ -151,8 +152,8 @@ const useStarknet = () => {
 };
 
 export const useAccount = () => {
-  const { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId } = useStarknet();
-  return { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId };
+  const { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId, switchNetwork } = useStarknet();
+  return { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId, switchNetwork };
 };
 
 export const useConnect = () => {

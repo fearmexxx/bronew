@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useBns } from '../src/hooks/useBns';
 import { useAccount } from '../src/starknet/StarknetProvider';
+import { constants } from 'starknet';
 
 const formatSTRK = (hex: string) => {
     try {
@@ -49,7 +50,8 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
     const [txHash, setTxHash] = useState<string | null>(null);
     const [hexPrice, setHexPrice] = useState('0x0');
     const { getPrice, registerDomain } = useBns();
-    const { isConnected, address } = useAccount();
+    const { isConnected, address, chainId, switchNetwork } = useAccount();
+    const isSepolia = chainId === constants.StarknetChainId.SN_SEPOLIA;
 
     const [records, setRecords] = useState({
         'avatar': '',
@@ -109,7 +111,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
     }, [domainName, getPrice]);
 
     const onRegister = async () => {
-        if (!isConnected) return;
+        if (!isConnected || !isSepolia) return;
         setIsSubmitting(true);
         try {
             const hash = await registerDomain(domainName.replace('.real',''), selectedYears, referrer, records);
@@ -411,15 +413,15 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                          {step < 3 ? (
                              <button 
                                 onClick={nextStep} 
-                                disabled={step === 1 && !isConnected}
+                                disabled={step === 1 && (!isConnected || !isSepolia)}
                                 className="w-full py-4 rounded-2xl bg-white text-black font-black hover:bg-gray-100 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl uppercase tracking-widest text-xs disabled:opacity-30 disabled:cursor-not-allowed"
                             >
-                                {!isConnected && step === 1 ? 'Connect Wallet to Continue' : `Continue to ${step === 1 ? 'Profile' : 'Review'}`}
+                                {!isConnected && step === 1 ? 'Connect Wallet to Continue' : !isSepolia && step === 1 ? 'Switch to Sepolia to Register' : `Continue to ${step === 1 ? 'Profile' : 'Review'}`}
                             </button>
                         ) : (
                             <button 
                                 onClick={onRegister} 
-                                disabled={!isConnected || isSubmitting} 
+                                disabled={!isConnected || !isSepolia || isSubmitting}
                                 className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#00f2a1] to-[#00c6ff] text-black font-black transition-all hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-[#00c6ff]/20 disabled:opacity-30 disabled:hover:scale-100 uppercase tracking-widest text-xs flex items-center justify-center gap-3"
                             >
                                 {isSubmitting ? (
@@ -431,6 +433,11 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                             </button>
                         )}
                     </div>
+                )}
+                {step < 4 && isConnected && !isSepolia && (
+                    <button onClick={() => void switchNetwork(constants.StarknetChainId.SN_SEPOLIA)} className="mt-3 w-full py-3 rounded-2xl border border-[#00c6ff]/30 bg-[#00c6ff]/10 text-[#00c6ff] font-bold text-xs uppercase tracking-widest">
+                        Switch wallet to Sepolia
+                    </button>
                 )}
             </div>
         </div>

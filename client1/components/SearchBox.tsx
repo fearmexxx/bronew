@@ -312,16 +312,16 @@ const SearchBox: React.FC<SearchBoxProps> = ({ onViewProfile }) => {
                         {!searchResult && !isLoading && (
                             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6 opacity-60 hover:opacity-100 transition-opacity duration-700">
                                 <div className="text-center group cursor-default">
-                                    <div className="text-3xl font-display font-medium text-white mb-2 group-hover:-translate-y-1 transition-transform duration-500">$6/yr</div>
-                                    <div className="text-xs text-gray-500 tracking-wider uppercase">Affordable</div>
+                                    <div className="text-3xl font-display font-medium text-white mb-2 group-hover:-translate-y-1 transition-transform duration-500">From 1 STRK</div>
+                                    <div className="text-xs text-gray-500 tracking-wider uppercase">Sepolia Beta</div>
                                 </div>
                                 <div className="text-center group cursor-default">
                                     <div className="text-3xl font-display font-medium text-white mb-2 group-hover:-translate-y-1 transition-transform duration-500 delay-75">100%</div>
-                                    <div className="text-xs text-gray-500 tracking-wider uppercase">On-Chain</div>
+                                    <div className="text-xs text-gray-500 tracking-wider uppercase">Contract-backed</div>
                                 </div>
                                 <div className="text-center group cursor-default">
-                                    <div className="text-3xl font-display font-medium text-white mb-2 group-hover:-translate-y-1 transition-transform duration-500 delay-150">∞</div>
-                                    <div className="text-xs text-gray-500 tracking-wider uppercase">Forever</div>
+                                    <div className="text-3xl font-display font-medium text-white mb-2 group-hover:-translate-y-1 transition-transform duration-500 delay-150">1–3 yr</div>
+                                    <div className="text-xs text-gray-500 tracking-wider uppercase">Renewable</div>
                                 </div>
                             </div>
                         )}

@@ -18,12 +18,9 @@ const FooterBanner: React.FC = () => {
             <div className="bg-gradient-to-r from-[#00f2a1] to-[#00c6ff] text-black p-2 sm:p-3 md:p-4 flex items-center justify-between gap-2 sm:gap-3 md:gap-4">
                 <div className="flex-grow flex items-center justify-center gap-x-2 sm:gap-x-3 md:gap-x-4 gap-y-2 flex-wrap sm:flex-nowrap min-w-0">
                     <div className="text-center sm:text-left min-w-0 flex-1">
-                        <p className="font-bold text-xs sm:text-sm md:text-base lg:text-lg break-words">$BROTHER Token Staking Now Live!</p>
-                        <p className="text-[10px] sm:text-xs md:text-sm break-words">Stake your tokens and earn rewards with an estimated <span className="font-semibold">APY of ~12.5%</span>.</p>
+                        <p className="font-bold text-xs sm:text-sm md:text-base lg:text-lg break-words">Private STRK is live in beta</p>
+                        <p className="text-[10px] sm:text-xs md:text-sm break-words">Shield, transfer, and unshield STRK through compatible STRK20 wallets.</p>
                     </div>
-                    <button className="flex-shrink-0 px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs md:text-sm bg-black/20 hover:bg-black/40 text-white font-semibold rounded-full transition-colors btn-hover-effect whitespace-nowrap">
-                        Learn More
-                    </button>
                 </div>
                 <button 
                     onClick={() => setIsVisible(false)}

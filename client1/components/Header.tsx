@@ -1,4 +1,6 @@
 import React from 'react';
+import { constants } from 'starknet';
+import { useAccount } from '../src/starknet/StarknetProvider';
 
 const BellIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-5 w-5"} fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -27,6 +29,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, walletAddress, onConnect, onDisconnect }) => {
+    const { chainId, switchNetwork } = useAccount();
+    const isMainnet = chainId === constants.StarknetChainId.SN_MAIN;
     const formatAddress = (address: string) => {
         return `${address.slice(0, 6)}...${address.slice(-4)}`;
     };
@@ -74,6 +78,13 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, walletAddr
 
                     {walletAddress ? (
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => void switchNetwork(isMainnet ? constants.StarknetChainId.SN_SEPOLIA : constants.StarknetChainId.SN_MAIN)}
+                                className={`hidden sm:block px-3 py-2 rounded-full border text-xs font-semibold ${isMainnet ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-blue-500/30 bg-blue-500/10 text-blue-300'}`}
+                                title="Change Starknet network in your wallet"
+                            >
+                                {isMainnet ? 'Mainnet' : 'Sepolia'}
+                            </button>
                             <button
                                 onClick={() => setCurrentView('identity')}
                                 className="hidden md:flex items-center justify-center p-2 rounded-full hover:bg-white/10 text-gray-300 hover:text-white transition-colors"

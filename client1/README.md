@@ -133,7 +133,7 @@ graph TD
 ## 7. Assumptions & Constraints
 - The project currently relies on mocked data in some places (like `mockSuggestions` in SearchBox) or specific hooks (`useBns`) that need to be fully integrated with live Starknet contracts.
 - "Real" domain extension is the primary product.
-- Private STRK requires a Sepolia wallet that exposes STRK20 Wallet API v0.10.3 or newer. Privacy keys and proofs stay inside that wallet.
+- Private STRK supports Starknet Mainnet and Sepolia through wallets exposing STRK20 Wallet API v0.10.3 or newer. Privacy keys and proofs stay inside that wallet. `.real` registration and resolution remain a clearly labeled Sepolia beta.
 
 ## 8. Future Roadmap
 - Full Smart Contract integration for Registry, Resolver, and Auction Controller.

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import DomainList from './DomainList';
 import AuctionHistoryList from './AuctionHistoryList';
 import Settings from './Settings';
-import ReferralDashboard from './ReferralDashboard';
 import Governance from './Governance';
 import EditProfileModal from './EditProfileModal';
 import { useBns } from '../src/hooks/useBns';
@@ -154,7 +153,6 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
                 <div className="flex min-w-0">
                     <button onClick={() => setActiveTab('domains')} className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold transition-colors whitespace-nowrap ${activeTab === 'domains' ? 'text-white border-b-2 border-[#00c6ff]' : 'text-gray-500 hover:text-gray-300'}`}>My Domains</button>
                     <button onClick={() => setActiveTab('auctions')} className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold transition-colors whitespace-nowrap ${activeTab === 'auctions' ? 'text-white border-b-2 border-[#00c6ff]' : 'text-gray-500 hover:text-gray-300'}`}>Auction History</button>
-                    <button onClick={() => setActiveTab('referrals')} className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold transition-colors whitespace-nowrap ${activeTab === 'referrals' ? 'text-white border-b-2 border-[#00c6ff]' : 'text-gray-500 hover:text-gray-300'}`}>Referrals</button>
                     <button onClick={() => setActiveTab('governance')} className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold transition-colors whitespace-nowrap ${activeTab === 'governance' ? 'text-white border-b-2 border-[#00c6ff]' : 'text-gray-500 hover:text-gray-300'}`}>Governance</button>
                     <button onClick={() => setActiveTab('settings')} className={`px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base md:text-lg font-semibold transition-colors whitespace-nowrap ${activeTab === 'settings' ? 'text-white border-b-2 border-[#00c6ff]' : 'text-gray-500 hover:text-gray-300'}`}>Settings</button>
                 </div>
@@ -163,7 +161,6 @@ const Profile: React.FC<ProfileProps> = ({ walletAddress }) => {
             <div className="animate-fade-in">
                 {activeTab === 'domains' && <DomainList />}
                 {activeTab === 'auctions' && <AuctionHistoryList />}
-                {activeTab === 'referrals' && <ReferralDashboard />}
                 {activeTab === 'governance' && <Governance />}
                 {activeTab === 'settings' && <Settings />}
             </div>

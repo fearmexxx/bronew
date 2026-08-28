@@ -30,7 +30,7 @@ const PriceCard: React.FC<PriceCardProps> = ({ years, price, title, description,
         </div>
 
         <div className="flex items-baseline gap-2">
-            <span className="text-5xl font-display font-bold text-white">${price}</span>
+            <span className="text-5xl font-display font-bold text-white">{price} STRK</span>
             <span className="text-gray-500 font-medium font-mono">/ {years} {years === 1 ? 'Year' : 'Years'}</span>
         </div>
 
@@ -66,21 +66,20 @@ const Pricing: React.FC<{ onRegisterClick: () => void }> = ({ onRegisterClick })
             <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none"></div>
 
             <div className="text-center space-y-4 mb-20">
-                <h2 className="text-sm font-bold text-orange-400 uppercase tracking-[0.3em] mb-4">Pricing Plans</h2>
+                <h2 className="text-sm font-bold text-orange-400 uppercase tracking-[0.3em] mb-4">Sepolia Beta Pricing</h2>
                 <h1 className="text-4xl sm:text-6xl font-display font-bold text-white tracking-tight leading-tight">
                     SIMPLE PRICING.<br />
                     <span className="text-gradient-warm">FOR EVERY IDENTITY.</span>
                 </h1>
                 <p className="max-w-2xl mx-auto text-gray-400 text-lg font-light leading-relaxed">
-                    Choose the plan that fits your journey. All domains are transferable, 
-                    upgradeable, and stored permanently on the Starknet blockchain.
+                    Current contract pricing for standard names of five or more characters. Short names carry a contract-defined premium. Prices use Sepolia STRK and have no fiat value.
                 </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
                 <PriceCard 
                     years={1}
-                    price={5}
+                    price={1}
                     title="Starter"
                     description="Perfect for getting started with your web3 identity. Includes all core BNS features."
                     features={[
@@ -95,15 +94,15 @@ const Pricing: React.FC<{ onRegisterClick: () => void }> = ({ onRegisterClick })
 
                 <PriceCard 
                     years={2}
-                    price={8}
+                    price={2}
                     isHighlighted={true}
                     title="Standard"
-                    description="The best value for creators and active community members. Save 20% on the yearly rate."
+                    description="A two-year registration term for creators and active community members."
                     features={[
                         "All Starter features",
-                        "Multi-year registration discount",
-                        "Verified badge eligibility",
-                        "Priority subdomain creation",
+                        "Two-year registration term",
+                        "Profile records",
+                        "Transfer support",
                         "Enhanced profile records access",
                         "Custom text record support"
                     ]}
@@ -112,16 +111,16 @@ const Pricing: React.FC<{ onRegisterClick: () => void }> = ({ onRegisterClick })
 
                 <PriceCard 
                     years={3}
-                    price={12}
+                    price={3}
                     title="Visionary"
                     description="For the long-term builders and visionaries of the Starknet ecosystem."
                     features={[
                         "All Standard features",
-                        "Maximum registration term",
-                        "Priority support eligibility",
-                        "Early access to new features",
-                        "Enhanced governance participation",
-                        "Genesis holder status"
+                        "Three-year registration term",
+                        "Profile records",
+                        "Transfer support",
+                        "Renewal support",
+                        "On-chain domain SVG"
                     ]}
                     onSelect={onRegisterClick}
                 />
@@ -139,10 +138,6 @@ const Pricing: React.FC<{ onRegisterClick: () => void }> = ({ onRegisterClick })
                                 <div className="w-8 h-8 rounded-full bg-orange-400 flex items-center justify-center text-black font-bold font-mono">S</div>
                                 <span className="text-lg font-bold text-white">STRK</span>
                              </div>
-                             <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black font-bold font-mono">B</div>
-                                <span className="text-lg font-bold text-white">BROTHER</span>
-                             </div>
                         </div>
                     </div>
 
@@ -150,7 +145,7 @@ const Pricing: React.FC<{ onRegisterClick: () => void }> = ({ onRegisterClick })
 
                     <div className="space-y-4">
                         <p className="text-gray-400 text-sm max-w-md mx-auto sm:text-left leading-relaxed">
-                            <span className="text-white font-bold">Secure and Decentralized.</span> Payments are processed directly through Starknet smart contracts with no hidden fees or middlemen.
+                            <span className="text-white font-bold">Testnet registration.</span> Registration payments are submitted to the deployed Brother ID contract on Starknet Sepolia. Wallet network fees may also apply.
                         </p>
                     </div>
                 </div>

@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle } from "lucide-react";
-import { num, shortString } from "starknet";
+import { constants, num, shortString } from "starknet";
 import type { WALLET_API } from "@starknet-io/types-js";
 import { useAccount } from "../src/starknet/StarknetProvider";
-import { STRK_TOKEN_ADDRESS, BNS_CONTRACT_ADDRESS, provider, voyagerScanBaseUrl } from "../src/constants";
+import { STRK_TOKEN_ADDRESS, BNS_CONTRACT_ADDRESS, provider, providerForChain, voyagerTxUrl } from "../src/constants";
 import { depositAction, parseTokenAmount, transferAction, withdrawAction } from "../src/strk20/actions";
 
 interface PrivateWalletProps {
@@ -24,7 +24,7 @@ const privacyError = (error: any): string => {
     return "This wallet is not registered with the STRK20 privacy pool. Open its privacy panel and complete registration, then retry.";
   }
   if (/not supported|method not found|unsupported/i.test(message)) {
-    return "This wallet does not expose STRK20 Wallet API v0.10.3. Connect a privacy-enabled Ready wallet.";
+    return "This wallet does not expose STRK20 Wallet API v0.10.3. Connect a privacy-enabled Xverse or Ready wallet.";
   }
   return message;
 };
@@ -40,7 +40,8 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [privateBalance, setPrivateBalance] = useState<bigint>(0n);
-  const { account, isConnected, isPrivacyCapable, supportedSpecs } = useAccount();
+  const { account, chainId, isConnected, isPrivacyCapable, supportedSpecs, switchNetwork } = useAccount();
+  const isMainnet = chainId === constants.StarknetChainId.SN_MAIN;
 
   useEffect(() => {
     if (initialRecipient) {
@@ -78,7 +79,12 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     const response = await account.strk20InvokeTransaction(actions);
     setTxHash(response.transaction_hash);
     setStatusMsg("Privacy proof submitted. Waiting for Starknet confirmation…");
-    await provider.waitForTransaction(response.transaction_hash, { retries: 400, retryInterval: 3000 });
+    await providerForChain(chainId).waitForTransaction(response.transaction_hash, { retries: 400, retryInterval: 3000 });
+    const stored = JSON.parse(localStorage.getItem("brother_strk20_transactions") || "[]");
+    localStorage.setItem("brother_strk20_transactions", JSON.stringify([
+      { hash: response.transaction_hash, chainId, createdAt: new Date().toISOString() },
+      ...stored.filter((entry: any) => entry?.hash !== response.transaction_hash),
+    ].slice(0, 20)));
     await loadPrivateBalance();
     return response.transaction_hash;
   };
@@ -142,7 +148,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-          <Lock className="w-3.5 h-3.5" /> STRK20 Wallet API v0.10.3
+          <Lock className="w-3.5 h-3.5" /> STRK20 · {isMainnet ? "Mainnet" : "Sepolia"}
         </div>
         <h2 className="text-3xl font-bold font-display text-white">Private STRK Wallet</h2>
         <p className="text-gray-400 max-w-2xl mx-auto">
@@ -158,9 +164,16 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
             <p className="text-amber-200/80 mt-1">
               {isConnected
                 ? `Connected wallet specs: ${supportedSpecs.join(", ") || "not reported"}. Use Ready with Wallet API v0.10.3 enabled.`
-                : "Connect Ready or another wallet that exposes the STRK20 Wallet API on Sepolia."}
+                : "Connect Xverse, Ready, or another wallet exposing STRK20 Wallet API v0.10.3+."}
             </p>
           </div>
+        </div>
+      )}
+
+      {isConnected && !isMainnet && (
+        <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center justify-between gap-4 text-sm text-blue-100">
+          <span>You are using Sepolia test funds. Switch to Mainnet for Sprint-eligible STRK20 transactions.</span>
+          <button onClick={() => void switchNetwork(constants.StarknetChainId.SN_MAIN)} className="rounded-xl bg-blue-400 px-4 py-2 font-bold text-black whitespace-nowrap">Switch to Mainnet</button>
         </div>
       )}
 
@@ -201,7 +214,8 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       </div>
 
       {statusMsg && <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-gray-200">{statusMsg}</div>}
-      {txHash && <a href={`${voyagerScanBaseUrl}/tx/${txHash}`} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-sm text-orange-400 hover:text-orange-300">View privacy transaction <ExternalLink className="w-4 h-4" /></a>}
+      {txHash && <a href={voyagerTxUrl(chainId, txHash)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-sm text-orange-400 hover:text-orange-300">View privacy transaction <ExternalLink className="w-4 h-4" /></a>}
+      <p className="text-xs text-center text-gray-500">Recipient names resolve through the Brother ID Sepolia registry; STRK20 settlement uses the network shown above.</p>
       <p className="text-xs text-center text-gray-600">The former Brother Identity escrow remains deployed for historical withdrawals but is not used by this STRK20 interface.</p>
     </div>
   );
