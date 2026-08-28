@@ -7,7 +7,7 @@ import {
   validateAndParseAddress,
   walletV6,
 } from "starknet";
-import { supportsStrk20Spec } from "../strk20/actions";
+import { hasStrk20WalletMethods, supportsStrk20Spec } from "../strk20/actions";
 import { isSupportedChain, sepoliaProvider } from "../constants";
 
 export const walletProvider = sepoliaProvider;
@@ -149,11 +149,17 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     });
   }, [activeConnector]);
 
+  // Xverse currently exposes the STRK20 methods but may not implement
+  // wallet_supportedSpecs on the same discovery connector. Runtime methods are
+  // the authoritative capability signal; reported specs remain diagnostic.
+  const isKnownStrk20Wallet = Boolean(
+    activeConnector?.id.includes("xverse") ||
+    activeConnector?.id.includes("ready") ||
+    activeConnector?.id.includes("argent"),
+  );
   const isPrivacyCapable = Boolean(
-    account &&
-      typeof account.strk20InvokeTransaction === "function" &&
-      typeof account.strk20Balances === "function" &&
-      supportedSpecs.some(supportsStrk20Spec),
+    hasStrk20WalletMethods(account) &&
+    (isKnownStrk20Wallet || supportedSpecs.some(supportsStrk20Spec)),
   );
 
   const value = useMemo<StarknetContextValue>(

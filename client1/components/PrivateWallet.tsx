@@ -41,7 +41,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [privateBalance, setPrivateBalance] = useState<bigint>(0n);
-  const { account, chainId, isConnected, isPrivacyCapable, supportedSpecs, switchNetwork } = useAccount();
+  const { account, chainId, isConnected, isPrivacyCapable, supportedSpecs, switchNetwork, walletName } = useAccount();
   const isMainnet = chainId === constants.StarknetChainId.SN_MAIN;
 
   useEffect(() => {
@@ -177,10 +177,16 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
             <p className="font-semibold">STRK20-compatible wallet required</p>
             <p className="text-amber-200/80 mt-1">
               {isConnected
-                ? `Connected wallet specs: ${supportedSpecs.join(", ") || "not reported"}. Use Ready with Wallet API v0.10.3 enabled.`
+                ? `${walletName || "The connected wallet"} does not expose the STRK20 balance and transaction methods to this page. Update the wallet, reconnect it, and make sure Starknet support is enabled.`
                 : "Connect Xverse, Ready, or another wallet exposing STRK20 Wallet API v0.10.3+."}
             </p>
           </div>
+        </div>
+      )}
+
+      {isPrivacyCapable && supportedSpecs.length === 0 && (
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center text-xs text-emerald-200/80">
+          STRK20 methods detected from {walletName || "your wallet"}; optional version metadata was not reported.
         </div>
       )}
 

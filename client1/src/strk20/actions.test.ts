@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   depositAction,
+  hasStrk20WalletMethods,
   parseTokenAmount,
   supportsStrk20Spec,
   transferAction,
@@ -14,6 +15,14 @@ describe("STRK20 Wallet API adapter", () => {
 
   it.each(["0.10.2", "0.9.9", "invalid", "0.10"])("rejects incompatible spec %s", (version) => {
     expect(supportsStrk20Spec(version)).toBe(false);
+  });
+
+  it("detects STRK20 support from the wallet methods when specs are not reported", () => {
+    expect(hasStrk20WalletMethods({
+      strk20Balances: () => [],
+      strk20InvokeTransaction: () => ({ transaction_hash: "0x1" }),
+    })).toBe(true);
+    expect(hasStrk20WalletMethods({ strk20Balances: () => [] })).toBe(false);
   });
 
   it("parses token values without floating-point precision loss", () => {

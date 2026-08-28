@@ -10,6 +10,18 @@ export const supportsStrk20Spec = (version: string): boolean => {
   return major > 0 || minor > 10 || (minor === 10 && patch >= 3);
 };
 
+export const hasStrk20WalletMethods = (account: unknown): boolean => {
+  const candidate = account as {
+    strk20InvokeTransaction?: unknown;
+    strk20Balances?: unknown;
+  } | null;
+  return Boolean(
+    candidate &&
+    typeof candidate.strk20InvokeTransaction === "function" &&
+    typeof candidate.strk20Balances === "function",
+  );
+};
+
 export const parseTokenAmount = (amount: string, decimals = 18): bigint => {
   const normalized = amount.trim();
   if (!/^\d+(\.\d+)?$/.test(normalized)) throw new Error("Enter a valid positive token amount.");
