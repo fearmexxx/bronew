@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserCheck, Shield, Plus, Send, Copy, Check, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
+import { UserCheck, Shield, Plus, Send, Copy, Check, Trash2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface Contact {
@@ -13,16 +13,10 @@ interface PrivateContactsProps {
   onSendClick?: (recipientDomain: string) => void;
 }
 
-const DEFAULT_CONTACTS: Contact[] = [
-  { domain: 'alice.real', note: 'DAO Core Contributor', privacyEnabled: true, verified: true },
-  { domain: 'bob.real', note: 'AI Trading Bot Developer', privacyEnabled: true, verified: true },
-  { domain: 'charlie.real', note: 'Treasury Guardian', privacyEnabled: false, verified: true },
-];
-
 export const PrivateContacts: React.FC<PrivateContactsProps> = ({ onSendClick }) => {
   const [contacts, setContacts] = useState<Contact[]>(() => {
     const saved = localStorage.getItem('brother_contacts');
-    return saved ? JSON.parse(saved) : DEFAULT_CONTACTS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [newDomain, setNewDomain] = useState('');
@@ -47,7 +41,7 @@ export const PrivateContacts: React.FC<PrivateContactsProps> = ({ onSendClick })
       domain: formatted,
       note: newNote.trim() || 'General Contact',
       privacyEnabled: true,
-      verified: true,
+      verified: false,
     };
 
     setContacts([newContact, ...contacts]);
@@ -114,7 +108,7 @@ export const PrivateContacts: React.FC<PrivateContactsProps> = ({ onSendClick })
           <h3 className="text-sm font-bold text-white uppercase tracking-wider">
             Saved Identities ({contacts.length})
           </h3>
-          <span className="text-xs text-gray-500">Stored privately in your encrypted browser session</span>
+          <span className="text-xs text-gray-500">Stored locally in this browser</span>
         </div>
 
         <div className="divide-y divide-white/5">
@@ -126,11 +120,6 @@ export const PrivateContacts: React.FC<PrivateContactsProps> = ({ onSendClick })
                   {c.privacyEnabled && (
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold flex items-center gap-1">
                       <Shield className="w-3 h-3" /> Preferred STRK20 recipient
-                    </span>
-                  )}
-                  {c.verified && (
-                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-[10px] font-semibold flex items-center gap-1">
-                      <CheckCircle className="w-3 h-3" /> Verified Identity
                     </span>
                   )}
                 </div>
@@ -164,6 +153,9 @@ export const PrivateContacts: React.FC<PrivateContactsProps> = ({ onSendClick })
               </div>
             </div>
           ))}
+          {contacts.length === 0 && (
+            <p className="py-8 text-center text-sm text-gray-500">No saved contacts yet. Add a `.real` name above; ownership is resolved when you send.</p>
+          )}
         </div>
       </div>
     </div>

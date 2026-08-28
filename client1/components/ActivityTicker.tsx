@@ -9,17 +9,8 @@ interface ActivityEvent {
     time: string;
 }
 
-const MOCK_EVENTS: ActivityEvent[] = [
-    { id: '1', type: 'register', domain: 'starknet.real', price: '50 STRK', time: '2m ago' },
-    { id: '2', type: 'bid', domain: 'crypto.real', price: '120 STRK', time: '5m ago' },
-    { id: '3', type: 'register', domain: 'alice.real', price: '10 STRK', time: '12m ago' },
-    { id: '4', type: 'sold', domain: 'btc.real', price: '500 STRK', time: '1h ago' },
-    { id: '5', type: 'register', domain: 'bob.real', price: '5 STRK', time: '1h ago' },
-    { id: '6', type: 'bid', domain: 'nft.real', price: '250 STRK', time: '2h ago' },
-];
-
 const ActivityTicker: React.FC = () => {
-    const [events, setEvents] = useState<ActivityEvent[]>(MOCK_EVENTS);
+    const [events, setEvents] = useState<ActivityEvent[]>([]);
     const { getRecentActivity } = useBns();
 
     useEffect(() => {
@@ -42,6 +33,14 @@ const ActivityTicker: React.FC = () => {
             clearInterval(interval);
         };
     }, [getRecentActivity]);
+
+    if (events.length === 0) {
+        return (
+            <div className="w-full bg-[#161B22]/80 border-y border-white/5 backdrop-blur-sm py-2 text-center text-xs text-gray-500">
+                Loading verified Sepolia contract activity…
+            </div>
+        );
+    }
 
     return (
         <div className="w-full bg-[#161B22]/80 border-y border-white/5 backdrop-blur-sm overflow-hidden py-2">
