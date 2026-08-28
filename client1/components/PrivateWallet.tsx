@@ -21,7 +21,7 @@ const formatStrk = (amount: bigint): string => {
 const privacyError = (error: any): string => {
   const message = error?.message || error?.toString?.() || String(error);
   if (/NOT_REGISTERED/i.test(message)) {
-    return "This wallet is not registered with the STRK20 privacy pool. Open its privacy panel and complete registration, then retry.";
+    return "Privacy is not activated for this wallet yet. In Xverse, open Starknet and turn on the shield toggle, approve the one-time activation, then return here and retry.";
   }
   if (/not supported|method not found|unsupported/i.test(message)) {
     return "This wallet does not expose STRK20 Wallet API v0.10.3. Connect a privacy-enabled Xverse or Ready wallet.";
@@ -38,6 +38,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
+  const [needsPrivacyActivation, setNeedsPrivacyActivation] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [privateBalance, setPrivateBalance] = useState<bigint>(0n);
@@ -61,7 +62,9 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       const balances = await account.strk20Balances([STRK_TOKEN_ADDRESS]);
       const entry: any = balances?.[0];
       setPrivateBalance(entry ? num.toBigInt(entry.balance ?? entry.amount ?? entry[1] ?? 0) : 0n);
+      setNeedsPrivacyActivation(false);
     } catch (error: any) {
+      setNeedsPrivacyActivation(/NOT_REGISTERED/i.test(error?.message || String(error)));
       setStatusMsg(privacyError(error));
       setPrivateBalance(0n);
     } finally {
@@ -97,6 +100,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     try {
       await operation();
     } catch (error: any) {
+      setNeedsPrivacyActivation(/NOT_REGISTERED/i.test(error?.message || String(error)));
       setStatusMsg(privacyError(error));
     } finally {
       setIsProcessing(false);
@@ -187,6 +191,26 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       {isPrivacyCapable && supportedSpecs.length === 0 && (
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center text-xs text-emerald-200/80">
           STRK20 methods detected from {walletName || "your wallet"}; optional version metadata was not reported.
+        </div>
+      )}
+
+      {needsPrivacyActivation && (
+        <div className="rounded-2xl border border-orange-500/30 bg-orange-500/10 p-5 text-sm text-orange-100 space-y-3">
+          <p className="font-bold text-base">Activate privacy once in {walletName || "your wallet"}</p>
+          <ol className="list-decimal pl-5 space-y-1 text-orange-100/80">
+            <li>Open Xverse and select your Starknet account.</li>
+            <li>Make sure Mainnet is selected and keep a small public STRK balance for gas.</li>
+            <li>Turn on the shield icon/toggle and approve the one-time privacy activation.</li>
+            <li>Return here and press “Check activation”.</li>
+          </ol>
+          <div className="flex flex-wrap gap-3">
+            <button onClick={() => void loadPrivateBalance()} disabled={isRefreshing} className="rounded-xl bg-orange-400 px-4 py-2 font-bold text-black disabled:opacity-50">
+              {isRefreshing ? "Checking…" : "Check activation"}
+            </button>
+            <a href="https://www.starknet.io/blog/strkbtc-user-guide/" target="_blank" rel="noreferrer" className="rounded-xl border border-orange-400/30 px-4 py-2 font-semibold text-orange-200">
+              Xverse shield guide
+            </a>
+          </div>
         </div>
       )}
 
