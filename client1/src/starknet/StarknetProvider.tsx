@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from "
 import { createStore } from "@starknet-io/get-starknet-discovery";
 import type { WalletWithStarknetFeatures } from "@starknet-io/get-starknet-wallet-standard/features";
 import {
+  constants,
   WalletAccountV6,
   validateAndParseAddress,
   walletV6,
@@ -27,6 +28,7 @@ interface StarknetContextValue {
   isConnected: boolean;
   isPrivacyCapable: boolean;
   supportedSpecs: string[];
+  walletName?: string;
   connectAsync: (args: { connector: Connector }) => Promise<void>;
   switchNetwork: (chainId: string) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -86,8 +88,36 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const switchNetwork = async (nextChainId: string) => {
     if (!activeConnector) throw new Error("Connect a wallet before changing networks.");
     if (!isSupportedChain(nextChainId)) throw new Error("Unsupported Starknet network.");
-    await walletV6.switchStarknetChain(activeConnector.wallet, nextChainId);
-    setChainId(await walletV6.requestChainId(activeConnector.wallet));
+    const isXverse = activeConnector.id.includes("xverse");
+
+    if (isXverse) {
+      const { BitcoinNetworkType, request: satsRequest } = await import("@sats-connect/core");
+      const response = await satsRequest(
+        "wallet_changeNetwork",
+        { name: nextChainId === constants.StarknetChainId.SN_MAIN ? BitcoinNetworkType.Mainnet : BitcoinNetworkType.Testnet },
+        "XverseProviders.BitcoinProvider",
+      );
+      if (response.status === "error") {
+        throw new Error(response.error?.message || "Xverse declined the network switch.");
+      }
+    } else {
+      const accepted = await walletV6.switchStarknetChain(activeConnector.wallet, nextChainId);
+      if (!accepted) {
+        throw new Error(`${activeConnector.name} did not approve the network switch. Change the network inside the wallet, then return to Brother ID.`);
+      }
+    }
+
+    // Wallet extensions can acknowledge before their provider reports the new
+    // chain. Verify the result instead of presenting a false success state.
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const reportedChainId = await walletV6.requestChainId(activeConnector.wallet);
+      if (reportedChainId === nextChainId) {
+        setChainId(reportedChainId);
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    throw new Error(`${activeConnector.name} did not change networks. Select the network manually in the wallet, then retry.`);
   };
 
   const disconnect = async () => {
@@ -135,11 +165,12 @@ export const StarknetProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       isConnected: Boolean(account && address),
       isPrivacyCapable,
       supportedSpecs,
+      walletName: activeConnector?.name,
       connectAsync,
       switchNetwork,
       disconnect,
     }),
-    [account, address, chainId, connectors, isPrivacyCapable, supportedSpecs],
+    [account, activeConnector?.name, address, chainId, connectors, isPrivacyCapable, supportedSpecs],
   );
 
   return <StarknetContext.Provider value={value}>{children}</StarknetContext.Provider>;
@@ -152,8 +183,8 @@ const useStarknet = () => {
 };
 
 export const useAccount = () => {
-  const { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId, switchNetwork } = useStarknet();
-  return { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId, switchNetwork };
+  const { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId, switchNetwork, walletName } = useStarknet();
+  return { account, address, isConnected, isPrivacyCapable, supportedSpecs, chainId, switchNetwork, walletName };
 };
 
 export const useConnect = () => {

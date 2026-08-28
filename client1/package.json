@@ -13,6 +13,7 @@
   "dependencies": {
     "@google/genai": "^1.25.0",
     "@headlessui/react": "^2.2.9",
+    "@sats-connect/core": "^0.17.6",
     "@starknet-io/get-starknet-discovery": "^6.0.2",
     "@starknet-io/get-starknet-wallet-standard": "^6.0.2",
     "@starknet-io/types-js": "^0.10.3",

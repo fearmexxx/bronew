@@ -46,6 +46,8 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
     const [selectedYears, setSelectedYears] = useState(1);
     const [isClosing, setIsClosing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [networkError, setNetworkError] = useState<string | null>(null);
+    const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
     const [referrer, setReferrer] = useState('');
     const [txHash, setTxHash] = useState<string | null>(null);
     const [hexPrice, setHexPrice] = useState('0x0');
@@ -134,6 +136,18 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
 
     const nextStep = () => setStep(s => s + 1);
     const prevStep = () => setStep(s => s - 1);
+
+    const handleSwitchToSepolia = async () => {
+        setNetworkError(null);
+        setIsSwitchingNetwork(true);
+        try {
+            await switchNetwork(constants.StarknetChainId.SN_SEPOLIA);
+        } catch (error: any) {
+            setNetworkError(error?.message || 'The wallet could not change networks.');
+        } finally {
+            setIsSwitchingNetwork(false);
+        }
+    };
 
     const renderStep1 = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -435,10 +449,11 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({ domainName, onClo
                     </div>
                 )}
                 {step < 4 && isConnected && !isSepolia && (
-                    <button onClick={() => void switchNetwork(constants.StarknetChainId.SN_SEPOLIA)} className="mt-3 w-full py-3 rounded-2xl border border-[#00c6ff]/30 bg-[#00c6ff]/10 text-[#00c6ff] font-bold text-xs uppercase tracking-widest">
-                        Switch wallet to Sepolia
+                    <button onClick={handleSwitchToSepolia} disabled={isSwitchingNetwork} className="mt-3 w-full py-3 rounded-2xl border border-[#00c6ff]/30 bg-[#00c6ff]/10 text-[#00c6ff] font-bold text-xs uppercase tracking-widest disabled:opacity-50">
+                        {isSwitchingNetwork ? 'Waiting for wallet…' : 'Switch wallet to Sepolia'}
                     </button>
                 )}
+                {networkError && <p className="mt-3 text-center text-sm text-red-300">{networkError}</p>}
             </div>
         </div>
     );

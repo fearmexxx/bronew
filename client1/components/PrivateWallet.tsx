@@ -37,6 +37,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [sendAmount, setSendAmount] = useState("1");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isSwitchingNetwork, setIsSwitchingNetwork] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [privateBalance, setPrivateBalance] = useState<bigint>(0n);
@@ -144,6 +145,19 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
   const canTransact = Boolean(isConnected && account && isPrivacyCapable && !isProcessing);
 
+  const handleSwitchToMainnet = async () => {
+    setIsSwitchingNetwork(true);
+    setStatusMsg("Confirm the Mainnet switch in your wallet…");
+    try {
+      await switchNetwork(constants.StarknetChainId.SN_MAIN);
+      setStatusMsg("Wallet connected to Starknet Mainnet.");
+    } catch (error: any) {
+      setStatusMsg(privacyError(error));
+    } finally {
+      setIsSwitchingNetwork(false);
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="text-center space-y-3">
@@ -173,7 +187,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       {isConnected && !isMainnet && (
         <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center justify-between gap-4 text-sm text-blue-100">
           <span>You are using Sepolia test funds. Switch to Mainnet for Sprint-eligible STRK20 transactions.</span>
-          <button onClick={() => void switchNetwork(constants.StarknetChainId.SN_MAIN)} className="rounded-xl bg-blue-400 px-4 py-2 font-bold text-black whitespace-nowrap">Switch to Mainnet</button>
+          <button onClick={handleSwitchToMainnet} disabled={isSwitchingNetwork} className="rounded-xl bg-blue-400 px-4 py-2 font-bold text-black whitespace-nowrap disabled:opacity-50">{isSwitchingNetwork ? "Waiting for wallet…" : "Switch to Mainnet"}</button>
         </div>
       )}
 
