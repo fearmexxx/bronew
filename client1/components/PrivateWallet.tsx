@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle } from "lucide-react";
-import { constants, num, shortString } from "starknet";
+import { constants, num, shortString, validateAndParseAddress } from "starknet";
 import type { WALLET_API } from "@starknet-io/types-js";
 import { useAccount } from "../src/starknet/StarknetProvider";
 import { STRK_TOKEN_ADDRESS, BNS_CONTRACT_ADDRESS, provider, providerForChain, voyagerTxUrl } from "../src/constants";
@@ -33,7 +33,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [activeTab, setActiveTab] = useState<"shield" | "unshield" | "send">(initialRecipient ? "send" : "shield");
   const [shieldAmount, setShieldAmount] = useState("1");
   const [unshieldAmount, setUnshieldAmount] = useState("1");
-  const [sendToDomain, setSendToDomain] = useState(initialRecipient || "alice.real");
+  const [sendToDomain, setSendToDomain] = useState(initialRecipient || "");
   const [sendAmount, setSendAmount] = useState("1");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -130,21 +130,30 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const handlePrivateSend = () => runAction(async () => {
     const amount = parseTokenAmount(sendAmount);
     if (amount > privateBalance) throw new Error("Insufficient private STRK balance.");
-    const domain = sendToDomain.trim().toLowerCase().replace(/\.real$/, "");
-    if (!domain || domain.length > 31) throw new Error("Enter a valid .real name.");
-    setStatusMsg(`Resolving ${domain}.real…`);
-    const resolved = await provider.callContract({
-      contractAddress: BNS_CONTRACT_ADDRESS,
-      entrypoint: "resolve_domain",
-      calldata: [shortString.encodeShortString(domain)],
-    });
-    const recipient = resolved[0];
-    if (!recipient || num.toBigInt(recipient) === 0n) throw new Error(`${domain}.real is not registered.`);
+    const input = sendToDomain.trim().toLowerCase();
+    let recipient: string;
+    let recipientLabel: string;
+    if (input.startsWith("0x")) {
+      recipient = validateAndParseAddress(input);
+      recipientLabel = `${recipient.slice(0, 8)}…${recipient.slice(-6)}`;
+    } else {
+      const domain = input.replace(/\.real$/, "");
+      if (!domain || domain.length > 31) throw new Error("Enter a valid .real name or Starknet address.");
+      setStatusMsg(`Resolving ${domain}.real on Sepolia…`);
+      const resolved = await provider.callContract({
+        contractAddress: BNS_CONTRACT_ADDRESS,
+        entrypoint: "resolve_domain",
+        calldata: [shortString.encodeShortString(domain)],
+      });
+      recipient = resolved[0];
+      recipientLabel = `${domain}.real`;
+      if (!recipient || num.toBigInt(recipient) === 0n) throw new Error(`${domain}.real is not registered.`);
+    }
     await submit(
       [transferAction(STRK_TOKEN_ADDRESS, amount, recipient)],
-      `Confirm the private transfer to ${domain}.real. Sender, recipient, and amount are protected by STRK20…`,
+      `Confirm the private transfer to ${recipientLabel}. Sender, recipient, and amount are protected by STRK20…`,
     );
-    setStatusMsg(`Privately transferred ${sendAmount} STRK to ${domain}.real.`);
+    setStatusMsg(`Privately transferred ${sendAmount} STRK to ${recipientLabel}.`);
   });
 
   const canTransact = Boolean(isConnected && account && isPrivacyCapable && !isProcessing);
@@ -247,7 +256,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
           <button onClick={handleShield} disabled={!canTransact} className="w-full py-4 rounded-xl bg-orange-500 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Shield className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Shield with STRK20"}</button>
         </>}
         {activeTab === "send" && <>
-          <label className="block text-sm text-gray-300">Recipient .real name<input value={sendToDomain} onChange={(e) => setSendToDomain(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white" /></label>
+          <label className="block text-sm text-gray-300">Recipient .real name or Starknet address<input value={sendToDomain} onChange={(e) => setSendToDomain(e.target.value)} placeholder="alice.real or 0x…" className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white" /></label>
           <label className="block text-sm text-gray-300">Private STRK amount<input value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
           <button onClick={handlePrivateSend} disabled={!canTransact} className="w-full py-4 rounded-xl bg-emerald-400 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Send className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Private transfer"}</button>
         </>}
@@ -259,7 +268,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
       {statusMsg && <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-gray-200">{statusMsg}</div>}
       {txHash && <a href={voyagerTxUrl(chainId, txHash)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-sm text-orange-400 hover:text-orange-300">View privacy transaction <ExternalLink className="w-4 h-4" /></a>}
-      <p className="text-xs text-center text-gray-500">Recipient names resolve through the Brother ID Sepolia registry; STRK20 settlement uses the network shown above.</p>
+      <p className="text-xs text-center text-gray-500">Direct addresses work on the connected network. `.real` names currently resolve through the Brother ID Sepolia registry; STRK20 settlement uses the network shown above.</p>
       <p className="text-xs text-center text-gray-600">The former Brother Identity escrow remains deployed for historical withdrawals but is not used by this STRK20 interface.</p>
     </div>
   );

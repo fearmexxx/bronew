@@ -1,8 +1,8 @@
 # Brother ID (Brother Protocol v3)
 
-> **Decentralized Sovereign Identity & Privacy Layer for Starknet**
+> **Human-readable private payments on Starknet**
 
-Brother Protocol transforms human-readable `.real` domain names into sovereign, multi-tenant digital identities on Starknet. It bundles native naming service operations, decentralized auctions, text records, and a transparent on-chain STRK escrow for domain-routed payments. The current escrow does not provide zero-knowledge transaction privacy.
+Brother ID lets users send private STRK to a memorable `.real` name or direct Starknet address through STRK20-compatible wallets. The wallet retains viewing keys and proof responsibility. `.real` registration currently runs on Sepolia while STRK20 payments support Starknet Mainnet; the former transparent escrow is not used by the private-payment interface.
 
 ---
 
