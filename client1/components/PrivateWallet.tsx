@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle } from "lucide-react";
+import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle, Copy, Check, Link2 } from "lucide-react";
 import { constants, num, shortString, validateAndParseAddress } from "starknet";
 import type { WALLET_API } from "@starknet-io/types-js";
 import { useAccount } from "../src/starknet/StarknetProvider";
@@ -42,6 +42,8 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [privateBalance, setPrivateBalance] = useState<bigint>(0n);
+  const [isPrivacyActivated, setIsPrivacyActivated] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const { account, chainId, isConnected, isPrivacyCapable, supportedSpecs, switchNetwork, walletName } = useAccount();
   const isMainnet = chainId === constants.StarknetChainId.SN_MAIN;
 
@@ -63,8 +65,10 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       const entry: any = balances?.[0];
       setPrivateBalance(entry ? num.toBigInt(entry.balance ?? entry.amount ?? entry[1] ?? 0) : 0n);
       setNeedsPrivacyActivation(false);
+      setIsPrivacyActivated(true);
     } catch (error: any) {
       setNeedsPrivacyActivation(/NOT_REGISTERED/i.test(error?.message || String(error)));
+      setIsPrivacyActivated(false);
       setStatusMsg(privacyError(error));
       setPrivateBalance(0n);
     } finally {
@@ -171,6 +175,18 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     }
   };
 
+  const copyPaymentLink = async () => {
+    if (!walletAddress || !isPrivacyActivated || !isMainnet) return;
+    try {
+      const link = `${window.location.origin}${window.location.pathname}?pay=${encodeURIComponent(walletAddress)}`;
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      setStatusMsg("Could not copy the link. Allow clipboard access and try again.");
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="text-center space-y-3">
@@ -241,6 +257,22 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
           </button>
         </div>
       </div>
+
+      {isConnected && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex gap-3">
+            <Link2 className="w-5 h-5 text-orange-400 flex-none mt-0.5" />
+            <div>
+              <p className="font-semibold text-white">Receive through a private-payment link</p>
+              <p className="text-xs text-gray-400 mt-1">The link shares your public Starknet address, never your viewing key or private balance. Payers choose the amount.</p>
+            </div>
+          </div>
+          <button onClick={copyPaymentLink} disabled={!isPrivacyActivated || !isMainnet} className="rounded-xl border border-orange-500/30 bg-orange-500/10 px-4 py-2.5 text-sm font-bold text-orange-300 disabled:opacity-40 whitespace-nowrap flex items-center justify-center gap-2">
+            {linkCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {linkCopied ? "Copied" : !isMainnet ? "Switch to Mainnet first" : isPrivacyActivated ? "Copy payment link" : "Activate privacy first"}
+          </button>
+        </div>
+      )}
 
       <div className="flex rounded-2xl bg-white/[0.03] border border-white/10 p-1">
         {(["shield", "send", "unshield"] as const).map((tab) => (

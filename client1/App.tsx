@@ -58,9 +58,10 @@ const Hero: React.FC<{ onPrivateWallet: () => void; onRegister: () => void }> = 
 );
 
 const App: React.FC = () => {
-    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>('search');
+    const paymentRecipient = new URLSearchParams(window.location.search).get('pay') || undefined;
+    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient ? 'private-wallet' : 'search');
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
-    const [targetRecipient, setTargetRecipient] = useState<string | undefined>(undefined);
+    const [targetRecipient, setTargetRecipient] = useState<string | undefined>(paymentRecipient);
     const { address, isConnected } = useAccount();
     const { disconnect } = useDisconnect();
 
@@ -76,7 +77,12 @@ const App: React.FC = () => {
 
     // Clear targetRecipient when navigating away from private-wallet
     const handleNavigate = (view: typeof currentView) => {
-        if (view !== 'private-wallet') setTargetRecipient(undefined);
+        if (view !== 'private-wallet') {
+            setTargetRecipient(undefined);
+            if (new URLSearchParams(window.location.search).has('pay')) {
+                window.history.replaceState({}, '', window.location.pathname);
+            }
+        }
         setCurrentView(view);
     };
 

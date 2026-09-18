@@ -1,6 +1,6 @@
 # Brother ID go-to-market plan
 
-Updated September 3, 2026.
+Updated September 18, 2026.
 
 ## Executive decision
 
@@ -72,13 +72,12 @@ Do not launch a token or depend on domain speculation for revenue. Domain fees c
 
 ## Distribution plan
 
-### Phase 0 — Sprint, now through September 7
+### Phase 0 — public beta, now
 
-- Register the repository immediately.
-- Produce three successful Mainnet transactions touching the STRK20 pool.
-- Publish a three-minute demo centered on one story: name → private payment → Mainnet evidence.
-- Ensure `strk20.json`, repository description, website field, README, and live demo agree.
-- Ask the STRK20 team one focused technical question if any wallet blocker remains; the Sprint repository explicitly directs blocked builders to issues.
+- Make activation → shield → private send reliable for a first-time user.
+- Launch recipient-owned payment links that prefill the payer's send flow.
+- Publish a 60-second demo centered on one story: open link → private payment → confirmation.
+- Onboard the first five users manually and observe every failure.
 
 ### Phase 1 — design partners, days 1–30
 
@@ -86,7 +85,6 @@ Do not launch a token or depend on domain speculation for revenue. Domain fees c
 - Run five concierge pilots. Manually onboard each payer and recipient.
 - Publish a 60-second product demo and one technical integration article.
 - Seek Xverse/Ready feedback on activation and Wallet API compatibility.
-- Apply for a Starknet Seed Grant only with pilot evidence and an execution milestone.
 
 ### Phase 2 — repeat usage, days 31–60
 
@@ -137,20 +135,16 @@ If fewer than five people complete a private send after hands-on onboarding, sto
 
 ## Immediate backlog, ordered
 
-1. Sprint registry entry, three Mainnet hashes, and demo video.
-2. Recipient input supporting direct Starknet addresses.
+1. Shareable payment links and recipient activation gating.
+2. Five manually onboarded design-partner pilots.
 3. Starknet ID resolver integration and clear resolver provenance.
-4. Recipient STRK20 readiness check or invite flow.
-5. Shareable payment request links.
-6. Consent-based conversion events with no wallet address collection.
-7. Five design-partner pilots.
-8. Batch payout prototype.
-9. Security review and Mainnet naming decision.
+4. Recipient readiness check or invite flow.
+5. Consent-based conversion events with no wallet address collection.
+6. Batch payout prototype.
+7. Security review and Mainnet naming decision.
 
 ## Evidence base
 
-- Private Sprint requirements and extended September 7 deadline: https://github.com/starkience/strk20-hackathon
 - STRK20 builder stack and Wallet API positioning: https://www.starknet.io/blog/push-to-private/
 - Starknet privacy launch and wallet ecosystem: https://www.starknet.io/blog/privacy-live-on-starknet/
-- Starknet Seed and Growth Grants: https://www.starknet.io/grants/
 - Existing Starknet identity infrastructure: https://docs.starknet.id/
