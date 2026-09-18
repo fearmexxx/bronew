@@ -36,10 +36,11 @@ From `client1/`: `npm run typecheck`, `npm test`, `npm run build`. From repo roo
 2. Mainnet switching, activation guidance, and direct-address transfers.
 3. Recipient-owned payment links.
 4. Starknet ID `.stark` resolution, resolver provenance, safe `.real` network gating, and recipient activation invites.
+5. Consent-based Vercel funnel analytics with URL redaction and strict non-identifying event dimensions.
 
 ## Next phase
 
-Consent-based, address-free funnel metrics followed by five concierge user pilots. Only after real repeat-use evidence: prototype batch private payouts.
+Enable/inspect Vercel Web Analytics, then run five concierge user pilots and record funnel failures. Only after repeat-use evidence: prototype batch private payouts.
 
 ## Detailed references
 

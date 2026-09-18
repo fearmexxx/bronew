@@ -90,7 +90,7 @@ Do not launch a token or depend on domain speculation for revenue. Domain fees c
 
 - Payment links, direct-address fallback, Starknet ID resolution, and safe `.real` network gating are shipped.
 - Recipient activation failures now provide an actionable invite; improve this only if wallet APIs expose a privacy-safe preflight.
-- Add consent-based funnel measurement.
+- Consent-based, address-free funnel measurement is shipped; enable its Vercel dashboard and inspect pilot drop-off.
 - Convert at least two design partners into paid team pilots.
 
 ### Phase 3 — team workflow, days 61–90
@@ -136,7 +136,7 @@ If fewer than five people complete a private send after hands-on onboarding, sto
 ## Immediate backlog, ordered
 
 1. Five manually onboarded design-partner pilots.
-2. Consent-based conversion events with no wallet address collection.
+2. Review the consented funnel after each pilot and fix the largest drop-off.
 3. Batch payout prototype, gated by repeat-use evidence.
 4. Security review and Mainnet naming decision, gated by alias demand.
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Header from './components/Header';
 import SearchBox from './components/SearchBox';
 import FooterBanner from './components/FooterBanner';
@@ -9,7 +9,10 @@ import ActivityTicker from './components/ActivityTicker';
 import IdentityDashboard from './components/IdentityDashboard';
 import PrivateWallet from './components/PrivateWallet';
 import PrivateContacts from './components/PrivateContacts';
+import AnalyticsConsent from './components/AnalyticsConsent';
 import { useAccount, useDisconnect } from './src/starknet/StarknetProvider';
+import { trackFunnel } from './src/analytics/funnel';
+import { constants } from 'starknet';
 
 // Replaced grid with organic mesh gradients
 const Hero: React.FC<{ onPrivateWallet: () => void; onRegister: () => void }> = ({ onPrivateWallet, onRegister }) => (
@@ -34,7 +37,7 @@ const Hero: React.FC<{ onPrivateWallet: () => void; onRegister: () => void }> = 
                 STRK20 settles on Mainnet; `.real` identity registration is currently a Sepolia beta.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <button onClick={onPrivateWallet} className="w-full sm:w-auto rounded-full bg-orange-500 px-7 py-3.5 font-bold text-black hover:bg-orange-400 transition-colors">
+                <button onClick={() => { trackFunnel('private_wallet_opened', { entry: 'navigation' }); onPrivateWallet(); }} className="w-full sm:w-auto rounded-full bg-orange-500 px-7 py-3.5 font-bold text-black hover:bg-orange-400 transition-colors">
                     Try private payments
                 </button>
                 <button onClick={onRegister} className="w-full sm:w-auto rounded-full border border-white/15 bg-white/5 px-7 py-3.5 font-semibold text-white hover:bg-white/10 transition-colors">
@@ -64,10 +67,19 @@ const App: React.FC = () => {
     const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient || activationInvite ? 'private-wallet' : 'search');
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
     const [targetRecipient, setTargetRecipient] = useState<string | undefined>(paymentRecipient);
-    const { address, isConnected } = useAccount();
+    const { address, isConnected, chainId } = useAccount();
     const { disconnect } = useDisconnect();
+    const wasConnected = useRef(false);
+
+    useEffect(() => {
+        if (isConnected && !wasConnected.current) {
+            trackFunnel('wallet_connected', { network: chainId === constants.StarknetChainId.SN_MAIN ? 'mainnet' : chainId === constants.StarknetChainId.SN_SEPOLIA ? 'sepolia' : 'unknown' });
+        }
+        wasConnected.current = isConnected;
+    }, [chainId, isConnected]);
 
     const handleConnectWallet = () => {
+        trackFunnel('wallet_connect_opened');
         setIsWalletModalOpen(true);
     };
 
@@ -154,6 +166,7 @@ const App: React.FC = () => {
             {currentView === 'search' && <FooterBanner />}
 
             <WalletModal isOpen={isWalletModalOpen} onClose={() => setIsWalletModalOpen(false)} />
+            <AnalyticsConsent />
         </div>
     );
 };

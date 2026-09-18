@@ -6,6 +6,7 @@ import { useAccount } from "../src/starknet/StarknetProvider";
 import { STRK_TOKEN_ADDRESS, providerForChain, voyagerTxUrl } from "../src/constants";
 import { depositAction, parseTokenAmount, transferAction, withdrawAction } from "../src/strk20/actions";
 import { recipientSourceLabel, resolveRecipient, type ResolvedRecipient } from "../src/payments/resolveRecipient";
+import { trackFunnel } from "../src/analytics/funnel";
 
 interface PrivateWalletProps {
   walletAddress: string | null;
@@ -51,6 +52,8 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [activationInviteLink, setActivationInviteLink] = useState<string | null>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
   const recipientResolutionRef = useRef<{ key: string; promise: Promise<ResolvedRecipient> } | null>(null);
+  const resolvedRecipientKeyRef = useRef<string | null>(null);
+  const privacyActivationTrackedRef = useRef(false);
   const { account, chainId, isConnected, isPrivacyCapable, supportedSpecs, switchNetwork, walletName } = useAccount();
   const isMainnet = chainId === constants.StarknetChainId.SN_MAIN;
 
@@ -73,6 +76,10 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       setPrivateBalance(entry ? num.toBigInt(entry.balance ?? entry.amount ?? entry[1] ?? 0) : 0n);
       setNeedsPrivacyActivation(false);
       setIsPrivacyActivated(true);
+      if (!privacyActivationTrackedRef.current) {
+        privacyActivationTrackedRef.current = true;
+        trackFunnel("privacy_activated", { network: isMainnet ? "mainnet" : "sepolia" });
+      }
     } catch (error: any) {
       setNeedsPrivacyActivation(/NOT_REGISTERED/i.test(error?.message || String(error)));
       setIsPrivacyActivated(false);
@@ -81,7 +88,11 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     } finally {
       setIsRefreshing(false);
     }
-  }, [account, isPrivacyCapable]);
+  }, [account, isMainnet, isPrivacyCapable]);
+
+  useEffect(() => {
+    privacyActivationTrackedRef.current = false;
+  }, [walletAddress]);
 
   useEffect(() => {
     void loadPrivateBalance();
@@ -125,6 +136,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       "Confirm shielding in your privacy-enabled wallet. Proof generation can take several minutes…",
     );
     setStatusMsg(`Shielded ${shieldAmount} STRK into the STRK20 privacy pool.`);
+    trackFunnel("shield_confirmed", { network: isMainnet ? "mainnet" : "sepolia" });
   });
 
   const handleUnshield = () => runAction(async () => {
@@ -136,6 +148,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       "Confirm the STRK20 withdrawal in your wallet. The public recipient will be visible…",
     );
     setStatusMsg(`Unshielded ${unshieldAmount} STRK to your public wallet.`);
+    trackFunnel("unshield_confirmed", { network: isMainnet ? "mainnet" : "sepolia" });
   });
 
   const handlePrivateSend = () => runAction(async () => {
@@ -149,6 +162,10 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
         `Confirm the private transfer to ${resolved.label}. Sender, recipient, and amount are protected by STRK20…`,
       );
       setStatusMsg(`Privately transferred ${sendAmount} STRK to ${resolved.label}.`);
+      trackFunnel("private_send_confirmed", {
+        network: isMainnet ? "mainnet" : "sepolia",
+        recipient_type: resolved.source === "starknet-id" ? "starknet_id" : resolved.source === "brother-id" ? "brother_id" : "address",
+      });
     } catch (error: any) {
       if (/NOT_REGISTERED/i.test(error?.message || String(error))) {
         setActivationInviteLink(`${window.location.origin}${window.location.pathname}?invite=1`);
@@ -160,6 +177,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
   const resolveAndPreviewRecipient = async (): Promise<ResolvedRecipient> => {
     const key = `${chainId || "unknown"}:${sendToDomain.trim().toLowerCase()}`;
+    if (resolvedRecipient && resolvedRecipientKeyRef.current === key) return resolvedRecipient;
     if (recipientResolutionRef.current?.key === key) return recipientResolutionRef.current.promise;
     setIsResolvingRecipient(true);
     const promise = resolveRecipient(sendToDomain, chainId);
@@ -167,6 +185,11 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     try {
       const resolved = await promise;
       setResolvedRecipient(resolved);
+      resolvedRecipientKeyRef.current = key;
+      trackFunnel("recipient_resolved", {
+        network: resolved.network === "Mainnet" ? "mainnet" : "sepolia",
+        recipient_type: resolved.source === "starknet-id" ? "starknet_id" : resolved.source === "brother-id" ? "brother_id" : "address",
+      });
       return resolved;
     } finally {
       if (recipientResolutionRef.current?.promise === promise) recipientResolutionRef.current = null;
@@ -189,6 +212,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     try {
       await navigator.clipboard.writeText(activationInviteLink);
       setInviteCopied(true);
+      trackFunnel("activation_invite_copied", { entry: "activation_invite" });
       window.setTimeout(() => setInviteCopied(false), 2000);
     } catch {
       setStatusMsg("Could not copy the invite. Allow clipboard access and try again.");
@@ -216,6 +240,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       const link = `${window.location.origin}${window.location.pathname}?pay=${encodeURIComponent(walletAddress)}`;
       await navigator.clipboard.writeText(link);
       setLinkCopied(true);
+      trackFunnel("payment_link_copied", { network: "mainnet", entry: "payment_link" });
       window.setTimeout(() => setLinkCopied(false), 2000);
     } catch {
       setStatusMsg("Could not copy the link. Allow clipboard access and try again.");
@@ -330,7 +355,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
           <button onClick={handleShield} disabled={!canTransact} className="w-full py-4 rounded-xl bg-orange-500 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Shield className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Shield with STRK20"}</button>
         </>}
         {activeTab === "send" && <>
-          <label className="block text-sm text-gray-300">Recipient .stark name, .real name, or Starknet address<input value={sendToDomain} onChange={(e) => { setSendToDomain(e.target.value); setResolvedRecipient(null); setActivationInviteLink(null); }} onBlur={() => void previewRecipient()} placeholder="alice.stark or 0x…" className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white" /></label>
+          <label className="block text-sm text-gray-300">Recipient .stark name, .real name, or Starknet address<input value={sendToDomain} onChange={(e) => { setSendToDomain(e.target.value); setResolvedRecipient(null); resolvedRecipientKeyRef.current = null; setActivationInviteLink(null); }} onBlur={() => void previewRecipient()} placeholder="alice.stark or 0x…" className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white" /></label>
           {isResolvingRecipient && <p className="text-xs text-gray-400">Resolving recipient…</p>}
           {resolvedRecipient && (
             <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-100 flex items-center justify-between gap-3">

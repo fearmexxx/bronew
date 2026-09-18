@@ -17,6 +17,7 @@
     "@starknet-io/get-starknet-discovery": "^6.0.2",
     "@starknet-io/get-starknet-wallet-standard": "^6.0.2",
     "@starknet-io/types-js": "^0.10.3",
+    "@vercel/analytics": "^2.0.1",
     "eventemitter3": "^5.0.4",
     "lucide-react": "^0.552.0",
     "react": "^18.3.1",
@@ -31,5 +32,10 @@
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "@sats-connect/core": {
+      "axios": "1.20.0"
+    }
   }
 }

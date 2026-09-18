@@ -10,10 +10,12 @@
 3. Fail-closed blocking of Sepolia `.real` aliases in Mainnet payments.
 4. Recipient activation invite flow for STRK20 `NOT_REGISTERED` failures.
 5. Compact `PROJECT_MEMORY.md` and phase audit workflow in `docs/audits/`.
+6. Explicit-consent, address-free funnel analytics with redacted payment-link URLs.
+7. Production dependency hardening; `npm audit --omit=dev` reports zero known vulnerabilities.
 
 ### Next
 
-- Add consent-based, address-free funnel measurement.
+- Enable and inspect Web Analytics in Vercel production settings.
 - Manually onboard five pilot users and record failure points.
 - Gate batch payouts on evidence of repeat usage.
 
