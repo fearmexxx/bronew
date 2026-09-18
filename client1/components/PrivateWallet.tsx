@@ -1,15 +1,17 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle, Copy, Check, Link2 } from "lucide-react";
-import { constants, num, shortString, validateAndParseAddress } from "starknet";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle, Copy, Check, Link2, UserPlus } from "lucide-react";
+import { constants, num } from "starknet";
 import type { WALLET_API } from "@starknet-io/types-js";
 import { useAccount } from "../src/starknet/StarknetProvider";
-import { STRK_TOKEN_ADDRESS, BNS_CONTRACT_ADDRESS, provider, providerForChain, voyagerTxUrl } from "../src/constants";
+import { STRK_TOKEN_ADDRESS, providerForChain, voyagerTxUrl } from "../src/constants";
 import { depositAction, parseTokenAmount, transferAction, withdrawAction } from "../src/strk20/actions";
+import { recipientSourceLabel, resolveRecipient, type ResolvedRecipient } from "../src/payments/resolveRecipient";
 
 interface PrivateWalletProps {
   walletAddress: string | null;
   domain?: string;
   initialRecipient?: string;
+  initialActivationInvite?: boolean;
 }
 
 const formatStrk = (amount: bigint): string => {
@@ -29,7 +31,7 @@ const privacyError = (error: any): string => {
   return message;
 };
 
-export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, initialRecipient }) => {
+export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, initialRecipient, initialActivationInvite = false }) => {
   const [activeTab, setActiveTab] = useState<"shield" | "unshield" | "send">(initialRecipient ? "send" : "shield");
   const [shieldAmount, setShieldAmount] = useState("1");
   const [unshieldAmount, setUnshieldAmount] = useState("1");
@@ -44,6 +46,11 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const [privateBalance, setPrivateBalance] = useState<bigint>(0n);
   const [isPrivacyActivated, setIsPrivacyActivated] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [resolvedRecipient, setResolvedRecipient] = useState<ResolvedRecipient | null>(null);
+  const [isResolvingRecipient, setIsResolvingRecipient] = useState(false);
+  const [activationInviteLink, setActivationInviteLink] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const recipientResolutionRef = useRef<{ key: string; promise: Promise<ResolvedRecipient> } | null>(null);
   const { account, chainId, isConnected, isPrivacyCapable, supportedSpecs, switchNetwork, walletName } = useAccount();
   const isMainnet = chainId === constants.StarknetChainId.SN_MAIN;
 
@@ -134,31 +141,59 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const handlePrivateSend = () => runAction(async () => {
     const amount = parseTokenAmount(sendAmount);
     if (amount > privateBalance) throw new Error("Insufficient private STRK balance.");
-    const input = sendToDomain.trim().toLowerCase();
-    let recipient: string;
-    let recipientLabel: string;
-    if (input.startsWith("0x")) {
-      recipient = validateAndParseAddress(input);
-      recipientLabel = `${recipient.slice(0, 8)}…${recipient.slice(-6)}`;
-    } else {
-      const domain = input.replace(/\.real$/, "");
-      if (!domain || domain.length > 31) throw new Error("Enter a valid .real name or Starknet address.");
-      setStatusMsg(`Resolving ${domain}.real on Sepolia…`);
-      const resolved = await provider.callContract({
-        contractAddress: BNS_CONTRACT_ADDRESS,
-        entrypoint: "resolve_domain",
-        calldata: [shortString.encodeShortString(domain)],
-      });
-      recipient = resolved[0];
-      recipientLabel = `${domain}.real`;
-      if (!recipient || num.toBigInt(recipient) === 0n) throw new Error(`${domain}.real is not registered.`);
+    const resolved = await resolveAndPreviewRecipient();
+    setActivationInviteLink(null);
+    try {
+      await submit(
+        [transferAction(STRK_TOKEN_ADDRESS, amount, resolved.address)],
+        `Confirm the private transfer to ${resolved.label}. Sender, recipient, and amount are protected by STRK20…`,
+      );
+      setStatusMsg(`Privately transferred ${sendAmount} STRK to ${resolved.label}.`);
+    } catch (error: any) {
+      if (/NOT_REGISTERED/i.test(error?.message || String(error))) {
+        setActivationInviteLink(`${window.location.origin}${window.location.pathname}?invite=1`);
+        throw new Error("The recipient has not activated STRK20 privacy yet. Copy the activation invite below and ask them to activate before retrying.");
+      }
+      throw error;
     }
-    await submit(
-      [transferAction(STRK_TOKEN_ADDRESS, amount, recipient)],
-      `Confirm the private transfer to ${recipientLabel}. Sender, recipient, and amount are protected by STRK20…`,
-    );
-    setStatusMsg(`Privately transferred ${sendAmount} STRK to ${recipientLabel}.`);
   });
+
+  const resolveAndPreviewRecipient = async (): Promise<ResolvedRecipient> => {
+    const key = `${chainId || "unknown"}:${sendToDomain.trim().toLowerCase()}`;
+    if (recipientResolutionRef.current?.key === key) return recipientResolutionRef.current.promise;
+    setIsResolvingRecipient(true);
+    const promise = resolveRecipient(sendToDomain, chainId);
+    recipientResolutionRef.current = { key, promise };
+    try {
+      const resolved = await promise;
+      setResolvedRecipient(resolved);
+      return resolved;
+    } finally {
+      if (recipientResolutionRef.current?.promise === promise) recipientResolutionRef.current = null;
+      setIsResolvingRecipient(false);
+    }
+  };
+
+  const previewRecipient = async () => {
+    setStatusMsg(null);
+    try {
+      await resolveAndPreviewRecipient();
+    } catch (error: any) {
+      setResolvedRecipient(null);
+      setStatusMsg(privacyError(error));
+    }
+  };
+
+  const copyActivationInvite = async () => {
+    if (!activationInviteLink) return;
+    try {
+      await navigator.clipboard.writeText(activationInviteLink);
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      setStatusMsg("Could not copy the invite. Allow clipboard access and try again.");
+    }
+  };
 
   const canTransact = Boolean(isConnected && account && isPrivacyCapable && !isProcessing);
 
@@ -239,9 +274,16 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
         </div>
       )}
 
+      {initialActivationInvite && (
+        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-5 text-sm text-purple-100">
+          <p className="font-bold text-base">You were invited to receive private STRK</p>
+          <p className="mt-1 text-purple-100/75">Connect Xverse or Ready on Mainnet, activate privacy once in the wallet, then return here and check activation. Afterward you can create your own payment link.</p>
+        </div>
+      )}
+
       {isConnected && !isMainnet && (
         <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center justify-between gap-4 text-sm text-blue-100">
-          <span>You are using Sepolia test funds. Switch to Mainnet for Sprint-eligible STRK20 transactions.</span>
+          <span>You are using Sepolia test funds. Switch to Mainnet for live STRK20 private payments.</span>
           <button onClick={handleSwitchToMainnet} disabled={isSwitchingNetwork} className="rounded-xl bg-blue-400 px-4 py-2 font-bold text-black whitespace-nowrap disabled:opacity-50">{isSwitchingNetwork ? "Waiting for wallet…" : "Switch to Mainnet"}</button>
         </div>
       )}
@@ -288,7 +330,14 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
           <button onClick={handleShield} disabled={!canTransact} className="w-full py-4 rounded-xl bg-orange-500 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Shield className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Shield with STRK20"}</button>
         </>}
         {activeTab === "send" && <>
-          <label className="block text-sm text-gray-300">Recipient .real name or Starknet address<input value={sendToDomain} onChange={(e) => setSendToDomain(e.target.value)} placeholder="alice.real or 0x…" className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white" /></label>
+          <label className="block text-sm text-gray-300">Recipient .stark name, .real name, or Starknet address<input value={sendToDomain} onChange={(e) => { setSendToDomain(e.target.value); setResolvedRecipient(null); setActivationInviteLink(null); }} onBlur={() => void previewRecipient()} placeholder="alice.stark or 0x…" className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white" /></label>
+          {isResolvingRecipient && <p className="text-xs text-gray-400">Resolving recipient…</p>}
+          {resolvedRecipient && (
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-xs text-emerald-100 flex items-center justify-between gap-3">
+              <span><strong>{resolvedRecipient.label}</strong> resolved by {recipientSourceLabel(resolvedRecipient.source)} on {resolvedRecipient.network}</span>
+              <Check className="w-4 h-4 flex-none" />
+            </div>
+          )}
           <label className="block text-sm text-gray-300">Private STRK amount<input value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
           <button onClick={handlePrivateSend} disabled={!canTransact} className="w-full py-4 rounded-xl bg-emerald-400 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Send className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Private transfer"}</button>
         </>}
@@ -299,8 +348,14 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       </div>
 
       {statusMsg && <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-gray-200">{statusMsg}</div>}
+      {activationInviteLink && (
+        <button onClick={copyActivationInvite} className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-bold text-purple-200 flex items-center justify-center gap-2">
+          {inviteCopied ? <Check className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+          {inviteCopied ? "Activation invite copied" : "Copy recipient activation invite"}
+        </button>
+      )}
       {txHash && <a href={voyagerTxUrl(chainId, txHash)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 text-sm text-orange-400 hover:text-orange-300">View privacy transaction <ExternalLink className="w-4 h-4" /></a>}
-      <p className="text-xs text-center text-gray-500">Direct addresses work on the connected network. `.real` names currently resolve through the Brother ID Sepolia registry; STRK20 settlement uses the network shown above.</p>
+      <p className="text-xs text-center text-gray-500">Direct addresses and `.stark` names resolve on the connected network. `.real` is a Sepolia-only beta and is blocked for Mainnet payments.</p>
       <p className="text-xs text-center text-gray-600">The former Brother Identity escrow remains deployed for historical withdrawals but is not used by this STRK20 interface.</p>
     </div>
   );

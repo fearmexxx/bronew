@@ -88,8 +88,8 @@ Do not launch a token or depend on domain speculation for revenue. Domain fees c
 
 ### Phase 2 — repeat usage, days 31–60
 
-- Ship payment links, direct-address fallback, and Starknet ID resolution alongside `.real`.
-- Ship recipient readiness checks and actionable wallet onboarding.
+- Payment links, direct-address fallback, Starknet ID resolution, and safe `.real` network gating are shipped.
+- Recipient activation failures now provide an actionable invite; improve this only if wallet APIs expose a privacy-safe preflight.
 - Add consent-based funnel measurement.
 - Convert at least two design partners into paid team pilots.
 
@@ -135,13 +135,10 @@ If fewer than five people complete a private send after hands-on onboarding, sto
 
 ## Immediate backlog, ordered
 
-1. Shareable payment links and recipient activation gating.
-2. Five manually onboarded design-partner pilots.
-3. Starknet ID resolver integration and clear resolver provenance.
-4. Recipient readiness check or invite flow.
-5. Consent-based conversion events with no wallet address collection.
-6. Batch payout prototype.
-7. Security review and Mainnet naming decision.
+1. Five manually onboarded design-partner pilots.
+2. Consent-based conversion events with no wallet address collection.
+3. Batch payout prototype, gated by repeat-use evidence.
+4. Security review and Mainnet naming decision, gated by alias demand.
 
 ## Evidence base
 

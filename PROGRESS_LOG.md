@@ -1,5 +1,22 @@
 # Progress Log: Brother ID (BNS)
 
+## Session: September 18, 2026
+**Objective:** Launch distribution and recipient completion
+
+### Shipped
+
+1. Mainnet-gated recipient-owned private payment links.
+2. Starknet ID `.stark` resolution on the connected network with visible provenance.
+3. Fail-closed blocking of Sepolia `.real` aliases in Mainnet payments.
+4. Recipient activation invite flow for STRK20 `NOT_REGISTERED` failures.
+5. Compact `PROJECT_MEMORY.md` and phase audit workflow in `docs/audits/`.
+
+### Next
+
+- Add consent-based, address-free funnel measurement.
+- Manually onboard five pilot users and record failure points.
+- Gate batch payouts on evidence of repeat usage.
+
 ## Session: April 5, 2026
 **Objective:** Infrastructure Hardening & Roadmap
 **Revision:** 0.9.3

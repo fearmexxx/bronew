@@ -58,8 +58,10 @@ const Hero: React.FC<{ onPrivateWallet: () => void; onRegister: () => void }> = 
 );
 
 const App: React.FC = () => {
-    const paymentRecipient = new URLSearchParams(window.location.search).get('pay') || undefined;
-    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient ? 'private-wallet' : 'search');
+    const initialParams = new URLSearchParams(window.location.search);
+    const paymentRecipient = initialParams.get('pay') || undefined;
+    const activationInvite = initialParams.get('invite') === '1';
+    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient || activationInvite ? 'private-wallet' : 'search');
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
     const [targetRecipient, setTargetRecipient] = useState<string | undefined>(paymentRecipient);
     const { address, isConnected } = useAccount();
@@ -79,7 +81,8 @@ const App: React.FC = () => {
     const handleNavigate = (view: typeof currentView) => {
         if (view !== 'private-wallet') {
             setTargetRecipient(undefined);
-            if (new URLSearchParams(window.location.search).has('pay')) {
+            const params = new URLSearchParams(window.location.search);
+            if (params.has('pay') || params.has('invite')) {
                 window.history.replaceState({}, '', window.location.pathname);
             }
         }
@@ -124,6 +127,7 @@ const App: React.FC = () => {
                         <PrivateWallet
                             walletAddress={isConnected ? address ?? null : null}
                             initialRecipient={targetRecipient}
+                            initialActivationInvite={activationInvite}
                         />
                     </div>
                 )}
