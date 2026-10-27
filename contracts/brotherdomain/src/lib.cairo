@@ -1783,7 +1783,6 @@ mod BrotherNamingService {
                 "Proposal not found",
             );
         }
-        }
         fn _get_domain_length(self: @ContractState, domain: felt252) -> usize {
             // Use shortString length calculation for standard encoding
             let domain_u256: u256 = domain.into();
