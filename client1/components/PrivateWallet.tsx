@@ -106,11 +106,18 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     setTxHash(response.transaction_hash);
     setStatusMsg("Privacy proof submitted. Waiting for Starknet confirmation…");
     await providerForChain(chainId).waitForTransaction(response.transaction_hash, { retries: 400, retryInterval: 3000 });
-    const stored = JSON.parse(localStorage.getItem("brother_strk20_transactions") || "[]");
-    localStorage.setItem("brother_strk20_transactions", JSON.stringify([
-      { hash: response.transaction_hash, chainId, createdAt: new Date().toISOString() },
-      ...stored.filter((entry: any) => entry?.hash !== response.transaction_hash),
-    ].slice(0, 20)));
+    // The transfer is already confirmed here; a corrupted or blocked local
+    // history must not surface as a failed payment.
+    try {
+      const parsed = JSON.parse(localStorage.getItem("brother_strk20_transactions") || "[]");
+      const stored = Array.isArray(parsed) ? parsed : [];
+      localStorage.setItem("brother_strk20_transactions", JSON.stringify([
+        { hash: response.transaction_hash, chainId, createdAt: new Date().toISOString() },
+        ...stored.filter((entry: any) => entry?.hash !== response.transaction_hash),
+      ].slice(0, 20)));
+    } catch {
+      // History is a convenience only.
+    }
     await loadPrivateBalance();
     return response.transaction_hash;
   };
