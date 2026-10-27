@@ -3,6 +3,9 @@ const { shortString } = require('starknet');
 const { contract } = require('./contract');
 
 const GRACE_PERIOD_SECS = 7776000; // 90 days
+// /v1/identity issues one RPC call per linked wallet, and anyone can link
+// unlimited wallets to their own identity, so cap the fan-out per request.
+const MAX_IDENTITY_WALLETS = 20;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -127,6 +130,17 @@ async function resolve(name) {
 
   if (isExpired) return null;
 
+  // `DomainDetails.resolver` is the owner. Payments must go to the resolution
+  // target, which the owner can point elsewhere with set_resolver.
+  const resolvedRes = await provider.callContract({
+    contractAddress: require('../config').bnsContractAddress,
+    entrypoint: 'resolve_domain',
+    calldata: [encoded],
+  }, 'latest');
+  const resolvedData = Array.isArray(resolvedRes) ? resolvedRes : (resolvedRes.result ?? resolvedRes.data ?? []);
+  const resolvedBig = BigInt(resolvedData[0] ?? 0);
+  if (resolvedBig === 0n) return null;
+
   // Verification (best effort)
   let isVerified = false;
   try {
@@ -140,7 +154,8 @@ async function resolve(name) {
   } catch { /* ignore */ }
 
   return {
-    address: toHexAddress(resolverBig),
+    address: toHexAddress(resolvedBig),
+    owner: toHexAddress(resolverBig),
     expiry: expiry || null,
     isGracePeriod,
     isVerified,
@@ -307,7 +322,7 @@ async function getIdentity(name) {
     }, 'latest');
     
     let countData = Array.isArray(rawWalletsCount) ? rawWalletsCount : (rawWalletsCount.result ?? rawWalletsCount.data ?? []);
-    const walletsCount = Number(BigInt(countData[0] ?? 0));
+    const walletsCount = Math.min(Number(BigInt(countData[0] ?? 0)), MAX_IDENTITY_WALLETS);
 
     const wallets = [];
     for (let i = 0; i < walletsCount; i++) {

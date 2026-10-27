@@ -173,7 +173,7 @@ mod BrotherNamingService {
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::introspection::src5::SRC5Component;
     use openzeppelin::security::reentrancyguard::ReentrancyGuardComponent;
-    use openzeppelin::token::erc721::{ERC721Component, ERC721HooksEmptyImpl};
+    use openzeppelin::token::erc721::ERC721Component;
     use openzeppelin::token::erc20::interface::IERC20CamelDispatcherTrait;
     use openzeppelin::token::erc20::interface::IERC20CamelDispatcher;
 
@@ -271,6 +271,10 @@ mod BrotherNamingService {
         _param_proposals: Map<u256, (u8, u256, u8, bool)>, // (param_id, value, confirmations, executed)
         _param_proposal_confirmations: Map<(u256, ContractAddress), bool>,
         _grace_period: u64,
+
+        // Monotonic token id counter. Burns decrement `_total_supply`, so ids
+        // must not be derived from it or a burned id gap makes mint collide.
+        _next_token_id: u256,
     }
 
     #[event]
@@ -586,12 +590,9 @@ mod BrotherNamingService {
             // If so, we need to clean up the old token
             let old_details = self._domain_to_details.read(domain);
             if !old_details.resolver.is_zero() {
-                // It was previously registered but is now available, meaning it expired + grace passed
-                // Burn the old token to keep total supply and mappings clean
-                self.erc721.burn(old_details.token_id);
-                // Also clear old owner index? complicated, leaving as is for now or
-                // strictly we should remove from owner index, but that requires iterating.
-                // Simplified cleanup: just burn the NFT.
+                // Previously registered, now past expiry + grace: retire the old
+                // registration (refund any escrowed auction, clear owner state, burn).
+                self._retire_expired_registration(domain, old_details);
             }
 
             assert!(years >= 1 && years <= 3, "Invalid years");
@@ -602,17 +603,14 @@ mod BrotherNamingService {
             // Calculate price and expiry with discount logic
             let mut price = self.compute_buy_price(domain_len, years.into());
 
-            // Apply STRK domain discount (one-time per address)
-            if has_strkdomain {
-                let strk_claimed = self._strk_discount_claimed.read(caller);
-                if !strk_claimed {
-                    price = self.apply_strkdomain_discount(price, years.into());
-                    self._strk_discount_claimed.write(caller, true);
-                }
-            }
+            // The STRK domain discount cannot be verified on-chain, so a caller-supplied
+            // flag would let any address mint for free. Reject it until verification exists.
+            assert!(!has_strkdomain, "STRK domain discount unavailable");
 
-            // Apply Brother domain discount (one-time per address, 1 year free)
+            // Apply Brother domain discount (one-time per address, 1 year free).
+            // Eligibility is checked on-chain: the caller must already hold an active name.
             if has_brother_domain {
+                assert!(self._owns_active_domain(caller), "No active Brother domain");
                 let brother_claimed = self._brother_discount_claimed.read(caller);
                 if !brother_claimed {
                     price = self.apply_brother_domain_discount(price, years.into());
@@ -621,7 +619,7 @@ mod BrotherNamingService {
             }
 
             let expiry = now + (31556926 * years.into());
-            let token_id = self._total_supply.read() + 1;
+            let token_id = self._allocate_token_id();
 
             // Create domain details
             let domain_details = DomainDetails {
@@ -751,45 +749,12 @@ mod BrotherNamingService {
 
         fn transfer_domain(ref self: ContractState, domain: felt252, to: ContractAddress) {
             let caller = get_caller_address();
-            let now = get_block_timestamp();
+            let domain_info = self._assert_domain_controller(domain, caller);
+            assert!(!to.is_zero(), "Invalid recipient");
 
-            // Get domain info
-            let mut domain_info = self.get_domain_info(domain);
-            let _zero_address: ContractAddress = 0.try_into().unwrap();
-            assert!(!domain_info.resolver.is_zero(), "Domain not found");
-            assert!(domain_info.resolver == caller, "Not domain owner");
-            assert!(!self.is_domain_expired(domain), "Domain expired");
-
-            // Update domain details
-            domain_info.resolver = to;
-            domain_info.last_transfer_time = now;
-            self._domain_to_details.write(domain, domain_info);
-            self._domain_to_address.write(domain, to);
-
-            // Transfer NFT using transfer_from (ERC721Component method)
+            // The ERC721 transfer hook (`_sync_domain_owner`) updates resolution,
+            // owner indexes and emits DomainTransferred.
             self.erc721.transfer_from(caller, to, domain_info.token_id);
-
-            // Remove domain from sender's index (mark as 0)
-            let count_from = self._owner_domain_count.read(caller);
-            let mut i_from = 0;
-            while i_from < count_from {
-                let d = self._owner_domain_index.read((caller, i_from));
-                if d == domain { self._owner_domain_index.write((caller, i_from), 0); break; };
-                i_from += 1;
-            };
-
-            // Append to recipient index
-            let count_to = self._owner_domain_count.read(to);
-            self._owner_domain_index.write((to, count_to), domain);
-            self._owner_domain_count.write(to, count_to + 1);
-
-            self.emit(DomainTransferred {
-                token_id: domain_info.token_id,
-                domain: domain,
-                from: caller,
-                to: to,
-                time: now,
-            });
         }
 
         // Subdomain functions
@@ -800,11 +765,7 @@ mod BrotherNamingService {
             let now = get_block_timestamp();
 
             // Check parent domain ownership
-            let parent_info = self.get_domain_info(parent_domain);
-            let _zero_address: ContractAddress = 0.try_into().unwrap();
-            assert!(!parent_info.resolver.is_zero(), "Domain not found");
-            assert!(parent_info.resolver == caller, "Not domain owner");
-            assert!(!self.is_domain_expired(parent_domain), "Parent domain expired");
+            self._assert_domain_controller(parent_domain, caller);
 
             // Enforce minimum subdomain label length
             let sub_len = self._get_domain_length(subdomain);
@@ -818,7 +779,7 @@ mod BrotherNamingService {
             let subdomain_len = self._get_domain_length(full_subdomain);
             let price = self.compute_buy_price(subdomain_len, years.into());
             let expiry = now + (31556926 * years.into());
-            let token_id = self._total_supply.read() + 1;
+            let token_id = self._allocate_token_id();
 
             // Create subdomain details
             let subdomain_details = DomainDetails {
@@ -892,14 +853,10 @@ mod BrotherNamingService {
             let caller = get_caller_address();
             let now = get_block_timestamp();
 
-            let mut domain_info = self.get_domain_info(domain);
-            let _zero_address: ContractAddress = 0.try_into().unwrap();
-            assert!(!domain_info.resolver.is_zero(), "Domain not found");
-            assert!(domain_info.resolver == caller, "Not domain owner");
-            assert!(!self.is_domain_expired(domain), "Domain expired");
+            self._assert_domain_controller(domain, caller);
 
-            domain_info.resolver = resolver;
-            self._domain_to_details.write(domain, domain_info);
+            // Only the resolution target changes. `DomainDetails.resolver` records the
+            // owner, so pointing a name elsewhere must not hand over control of it.
             self._domain_to_address.write(domain, resolver);
 
             self.emit(ResolverSet {
@@ -1010,11 +967,7 @@ mod BrotherNamingService {
             let caller = get_caller_address();
             let now = get_block_timestamp();
 
-            let domain_info = self.get_domain_info(domain);
-            let _zero_address: ContractAddress = 0.try_into().unwrap();
-            assert!(!domain_info.resolver.is_zero(), "Domain not found");
-            assert!(domain_info.resolver == caller, "Not domain owner");
-            assert!(!self.is_domain_expired(domain), "Domain expired");
+            self._assert_domain_controller(domain, caller);
 
             self._user_primary_domain.write(caller, domain);
             self._address_to_domain.write(caller, domain);
@@ -1061,6 +1014,7 @@ mod BrotherNamingService {
 
         fn set_treasury(ref self: ContractState, treasury: ContractAddress) {
             self.ownable.assert_only_owner();
+            assert!(!treasury.is_zero(), "Invalid treasury");
             self._treasury_addr.write(treasury);
         }
 
@@ -1084,10 +1038,8 @@ mod BrotherNamingService {
             let caller = get_caller_address();
             let now = get_block_timestamp();
 
-            let domain_info = self.get_domain_info(domain);
+            let domain_info = self._assert_domain_controller(domain, caller);
             let zero_address: ContractAddress = 0.try_into().unwrap();
-            assert!(!domain_info.resolver.is_zero(), "Domain not found");
-            assert!(domain_info.resolver == caller, "Not domain owner");
 
             // Burn the NFT using OpenZeppelin component
             self.erc721.burn(domain_info.token_id);
@@ -1114,6 +1066,8 @@ mod BrotherNamingService {
                 if d == domain { self._owner_domain_index.write((owner, i), 0); break; };
                 i += 1;
             };
+
+            self._clear_reverse_records(caller, domain);
 
             // Clear token ID to domain mapping
             self._token_id_to_domain.write(domain_info.token_id, 0);
@@ -1203,6 +1157,7 @@ mod BrotherNamingService {
             let now = get_block_timestamp();
 
             assert!(self._treasury_signers.read(caller), "Not a treasury signer");
+            assert!(!new_treasury.is_zero(), "Invalid treasury");
 
             let proposal_id = self._treasury_proposal_count.read() + 1;
             self._treasury_proposal_count.write(proposal_id);
@@ -1228,6 +1183,7 @@ mod BrotherNamingService {
             let now = get_block_timestamp();
 
             assert!(self._treasury_signers.read(caller), "Not a treasury signer");
+            self._assert_treasury_proposal_exists(proposal_id);
 
             let (treasury, mut confirmations, required, executed) = self._treasury_proposals.read(proposal_id);
             assert!(!executed, "Proposal already executed");
@@ -1250,6 +1206,7 @@ mod BrotherNamingService {
             let now = get_block_timestamp();
 
             assert!(self._treasury_signers.read(caller), "Not a treasury signer");
+            self._assert_treasury_proposal_exists(proposal_id);
 
             let (new_treasury, confirmations, required, executed) = self._treasury_proposals.read(proposal_id);
             assert!(!executed, "Proposal already executed");
@@ -1334,6 +1291,7 @@ mod BrotherNamingService {
             let owner = self.erc721.owner_of(domain_info.token_id);
             assert!(owner == caller, "Not domain owner");
             assert!(!self.is_domain_expired(domain), "Domain expired");
+            assert!(ends_at < domain_info.expiry_date, "Auction must end before expiry");
 
             // Check if auction already exists and is active for this domain
             let existing_auc = self._auctions.read(domain);
@@ -1434,29 +1392,9 @@ mod BrotherNamingService {
                 return ();
             }
 
-            // Transfer NFT to winner
+            // Transfer NFT to winner. The ERC721 transfer hook keeps resolution and
+            // owner indexes in sync and emits DomainTransferred.
             self.erc721.transfer(starknet::get_contract_address(), auc.highest_bidder, auc.token_id);
-
-            // Keep BNS resolution and owner indexes synchronized with ERC721 ownership.
-            let mut domain_info = self._domain_to_details.read(domain);
-            domain_info.resolver = auc.highest_bidder;
-            domain_info.last_transfer_time = now;
-            self._domain_to_details.write(domain, domain_info);
-            self._domain_to_address.write(domain, auc.highest_bidder);
-
-            let seller_count = self._owner_domain_count.read(auc.seller);
-            let mut seller_index = 0;
-            while seller_index < seller_count {
-                if self._owner_domain_index.read((auc.seller, seller_index)) == domain {
-                    self._owner_domain_index.write((auc.seller, seller_index), 0);
-                    break;
-                };
-                seller_index += 1;
-            };
-
-            let winner_count = self._owner_domain_count.read(auc.highest_bidder);
-            self._owner_domain_index.write((auc.highest_bidder, winner_count), domain);
-            self._owner_domain_count.write(auc.highest_bidder, winner_count + 1);
 
             // Payout
             let fee_amount = (auc.highest_bid * (self._auction_fee_bps.read().into())) / 10000_u256;
@@ -1466,13 +1404,6 @@ mod BrotherNamingService {
             let ok2 = token.transfer(auc.seller, seller_amount);
             assert!(ok1 && ok2, "Payout failed");
 
-            self.emit(DomainTransferred {
-                token_id: auc.token_id,
-                domain,
-                from: auc.seller,
-                to: auc.highest_bidder,
-                time: now,
-            });
             self.emit(AuctionSettled { domain, winner: auc.highest_bidder, amount: auc.highest_bid, time: now });
             self.reentrancy_guard.end();
         }
@@ -1545,12 +1476,7 @@ mod BrotherNamingService {
         // Text Record functions
         fn set_text(ref self: ContractState, domain: felt252, key: felt252, value: felt252) {
             let caller = get_caller_address();
-            let domain_info = self.get_domain_info(domain);
-            let _zero_address: ContractAddress = 0.try_into().unwrap();
-
-            assert!(!domain_info.resolver.is_zero(), "Domain not found");
-            assert!(domain_info.resolver == caller, "Not domain owner");
-            assert!(!self.is_domain_expired(domain), "Domain expired");
+            self._assert_domain_controller(domain, caller);
 
             self._text_records.write((domain, key), value);
 
@@ -1586,6 +1512,7 @@ mod BrotherNamingService {
 
             assert!(self._treasury_signers.read(caller), "Not a treasury signer");
             assert!(param_id >= 1 && param_id <= 4, "Invalid param_id");
+            assert_param_in_bounds(param_id, value);
 
             let proposal_id = self._param_proposal_count.read() + 1;
             self._param_proposal_count.write(proposal_id);
@@ -1621,8 +1548,11 @@ mod BrotherNamingService {
             assert!(self._treasury_signers.read(caller), "Not a treasury signer");
 
             let (param_id, value, confirmations, executed) = self._param_proposals.read(proposal_id);
+            assert!(param_id != 0, "Proposal not found");
             assert!(!executed, "Already executed");
             assert!(confirmations >= self._required_signatures.read(), "Not enough confirmations");
+
+            assert_param_in_bounds(param_id, value);
 
             let mut old_value = 0_u256;
             if param_id == 1 {
@@ -1708,6 +1638,151 @@ mod BrotherNamingService {
     impl InternalFunctions of InternalFunctionsTrait {
         fn _token_dispatcher(self: @ContractState) -> IERC20CamelDispatcher {
             IERC20CamelDispatcher { contract_address: self._payment_token_addr.read() }
+        }
+
+        // Returns an id that has never been assigned. Starts past `_total_supply`
+        // so deployments upgraded from the supply-derived scheme stay collision free.
+        fn _allocate_token_id(ref self: ContractState) -> u256 {
+            let mut token_id = self._next_token_id.read();
+            let supply = self._total_supply.read();
+            if token_id < supply {
+                token_id = supply;
+            }
+            token_id += 1;
+            while self._token_id_to_domain.read(token_id) != 0 {
+                token_id += 1;
+            };
+            self._next_token_id.write(token_id);
+            token_id
+        }
+
+        // Authority over a name comes from holding its NFT, so a name escrowed in an
+        // auction or sold through a marketplace cannot be edited by the former owner.
+        fn _assert_domain_controller(
+            self: @ContractState, domain: felt252, caller: ContractAddress,
+        ) -> DomainDetails {
+            let domain_info = self.get_domain_info(domain);
+            assert!(!domain_info.resolver.is_zero(), "Domain not found");
+            assert!(self.erc721.owner_of(domain_info.token_id) == caller, "Not domain owner");
+            domain_info
+        }
+
+        fn _owns_active_domain(self: @ContractState, owner: ContractAddress) -> bool {
+            let count = self._owner_domain_count.read(owner);
+            let now = get_block_timestamp();
+            let mut i = 0;
+            let mut found = false;
+            while i < count {
+                let d = self._owner_domain_index.read((owner, i));
+                if d != 0 {
+                    let details = self._domain_to_details.read(d);
+                    if details.resolver == owner && details.expiry_date >= now {
+                        found = true;
+                        break;
+                    }
+                }
+                i += 1;
+            };
+            found
+        }
+
+        fn _remove_from_owner_index(ref self: ContractState, owner: ContractAddress, domain: felt252) {
+            let count = self._owner_domain_count.read(owner);
+            let mut i = 0;
+            while i < count {
+                if self._owner_domain_index.read((owner, i)) == domain {
+                    self._owner_domain_index.write((owner, i), 0);
+                    break;
+                };
+                i += 1;
+            };
+        }
+
+        fn _clear_reverse_records(ref self: ContractState, owner: ContractAddress, domain: felt252) {
+            if self._user_primary_domain.read(owner) == domain {
+                self._user_primary_domain.write(owner, 0);
+            }
+            if self._address_to_domain.read(owner) == domain {
+                self._address_to_domain.write(owner, 0);
+            }
+        }
+
+        // Called after every ERC721 balance change. Mints, burns and moves into
+        // auction escrow are no-ops; any real change of holder moves ownership.
+        fn _sync_domain_owner(ref self: ContractState, to: ContractAddress, token_id: u256) {
+            if to.is_zero() || to == starknet::get_contract_address() {
+                return;
+            }
+            let domain = self._token_id_to_domain.read(token_id);
+            if domain == 0 {
+                return;
+            }
+            let mut details = self._domain_to_details.read(domain);
+            if details.token_id != token_id {
+                return;
+            }
+            let from = details.resolver;
+            if from == to {
+                return;
+            }
+            let now = get_block_timestamp();
+
+            details.resolver = to;
+            details.last_transfer_time = now;
+            self._domain_to_details.write(domain, details);
+            self._domain_to_address.write(domain, to);
+
+            self._remove_from_owner_index(from, domain);
+            self._clear_reverse_records(from, domain);
+            let count_to = self._owner_domain_count.read(to);
+            self._owner_domain_index.write((to, count_to), domain);
+            self._owner_domain_count.write(to, count_to + 1);
+
+            self.emit(DomainTransferred { token_id, domain, from, to, time: now });
+        }
+
+        // Clears a registration that is past expiry + grace before the name is reused.
+        fn _retire_expired_registration(
+            ref self: ContractState, domain: felt252, old_details: DomainDetails,
+        ) {
+            let previous_owner = old_details.resolver;
+
+            // An auction left open on the expired name would otherwise lock the
+            // highest bid once its escrowed token is burned below.
+            let auc = self._auctions.read(domain);
+            if auc.active {
+                if auc.highest_bid != 0_u256 {
+                    let bal = self._refundable.read(auc.highest_bidder);
+                    self._refundable.write(auc.highest_bidder, bal + auc.highest_bid);
+                }
+                let mut closed = auc;
+                closed.active = false;
+                self._auctions.write(domain, closed);
+                AuctionInternalImpl::_remove_from_active_auctions(ref self, domain);
+                self.emit(AuctionCancelled { domain, time: get_block_timestamp() });
+            }
+
+            self._remove_from_owner_index(previous_owner, domain);
+            self._clear_reverse_records(previous_owner, domain);
+
+            // Drop the previous owner's standard profile records.
+            self._text_records.write((domain, 'avatar'), 0);
+            self._text_records.write((domain, 'twitter'), 0);
+            self._text_records.write((domain, 'discord'), 0);
+            self._text_records.write((domain, 'url'), 0);
+            self._text_records.write((domain, 'description'), 0);
+            self._text_records.write((domain, 'nickname'), 0);
+            self._is_verified.write(domain, false);
+
+            self.erc721.burn(old_details.token_id);
+        }
+
+        fn _assert_treasury_proposal_exists(self: @ContractState, proposal_id: u256) {
+            assert!(
+                proposal_id != 0 && proposal_id <= self._treasury_proposal_count.read(),
+                "Proposal not found",
+            );
+        }
         }
         fn _get_domain_length(self: @ContractState, domain: felt252) -> usize {
             // Use shortString length calculation for standard encoding
@@ -1811,8 +1886,41 @@ mod BrotherNamingService {
         }
     }
 
-    // Use empty ERC721 hooks implementation
-    impl ERC721HooksImpl = ERC721HooksEmptyImpl<ContractState>;
+    fn assert_param_in_bounds(param_id: u8, value: u256) {
+        if param_id == 1 {
+            assert!(value > 0, "Base price must be positive");
+        } else if param_id == 2 {
+            assert!(value <= 10000, "Fee bps above 100%");
+        } else if param_id == 3 {
+            assert!(value <= 31536000, "Grace period above 1 year");
+        } else if param_id == 4 {
+            assert!(value <= 10000, "Referral bps above 100%");
+        }
+    }
+
+    // ERC721 hooks: every NFT movement (transfer_domain, auction settlement, or a
+    // plain ERC721 transfer by a wallet or marketplace) keeps BNS ownership in sync.
+    impl ERC721HooksImpl of ERC721Component::ERC721HooksTrait<ContractState> {
+        fn before_update(
+            ref self: ERC721Component::ComponentState<ContractState>,
+            to: ContractAddress,
+            token_id: u256,
+            auth: ContractAddress,
+        ) {
+            let _ = (to, token_id, auth);
+        }
+
+        fn after_update(
+            ref self: ERC721Component::ComponentState<ContractState>,
+            to: ContractAddress,
+            token_id: u256,
+            auth: ContractAddress,
+        ) {
+            let _ = auth;
+            let mut contract_state = self.get_contract_mut();
+            contract_state._sync_domain_owner(to, token_id);
+        }
+    }
 
     #[abi(embed_v0)]
     impl UpgradeableImpl of crate::proxy::IUpgradeableContract<ContractState> {

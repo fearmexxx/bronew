@@ -57,6 +57,7 @@ router.get('/v1/resolve', validateResolve, async (req, res) => {
     const response = {
       name: name + config.tld,
       address: result.address,
+      owner: result.owner,
       expiry: result.expiry,
       isGracePeriod: result.isGracePeriod,
       isVerified: result.isVerified,
