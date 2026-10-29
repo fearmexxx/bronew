@@ -52,3 +52,4 @@ dev-dependencies/
 .idea/
 *.swp
 *.swo
+.local-devnet/

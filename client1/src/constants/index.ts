@@ -36,6 +36,7 @@ export const voyagerTxUrl = (chainId: string | undefined, transactionHash: strin
   `${voyagerBaseUrlForChain(chainId)}/tx/${transactionHash}`;
 
 export const BNS_CONTRACT_ADDRESS =
+  (import.meta as any).env?.VITE_BNS_CONTRACT_ADDRESS ||
   "0x0797edc2bfaa44fcf46aa55a0f9210d5c698de8553a144e69038dfd5ba4592b8";
 export const BROTHER_TOKEN_ADDRESS = STRK_TOKEN_ADDRESS;
 
