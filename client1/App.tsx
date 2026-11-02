@@ -30,10 +30,10 @@ const Hero: React.FC<{ onPrivateWallet: () => void; onRegister: () => void }> = 
         {/* Main Text */}
         <div className="relative z-10 max-w-5xl mx-auto space-y-8">
             <h1 className="font-display text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-semibold tracking-tighter text-white leading-[0.9] text-gradient-warm">
-                SEND STRK.<br /> REVEAL LESS.
+                PAY PEOPLE.<br /> REVEAL LESS.
             </h1>
             <p className="max-w-2xl mx-auto text-gray-400 text-lg sm:text-xl font-light leading-relaxed tracking-wide">
-                Send private STRK to a memorable name instead of exposing your payment graph. <br className="hidden sm:block" />
+                Pay contributors, KOLs, and ambassadors in private USDC or STRK, one at a time or a whole list in one approval. <br className="hidden sm:block" />
                 STRK20 settles on Mainnet; `.real` identity registration is currently a Sepolia beta.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">

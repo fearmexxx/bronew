@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle, Copy, Check, Link2, UserPlus } from "lucide-react";
+import { CampaignPayout } from "./CampaignPayout";
 import { constants, num } from "starknet";
 import type { WALLET_API } from "@starknet-io/types-js";
 import { useAccount } from "../src/starknet/StarknetProvider";
-import { STRK_TOKEN_ADDRESS, providerForChain, voyagerTxUrl } from "../src/constants";
+import { providerForChain, voyagerTxUrl } from "../src/constants";
 import { depositAction, parseTokenAmount, transferAction, withdrawAction } from "../src/strk20/actions";
 import { recipientSourceLabel, resolveRecipient, type ResolvedRecipient } from "../src/payments/resolveRecipient";
 import { trackFunnel } from "../src/analytics/funnel";
+import type { PreparedPayoutRow } from "../src/payments/payoutList";
+import { PAYMENT_TOKENS, PAYMENT_TOKEN_SYMBOLS, formatTokenAmount, tokenAddressForChain, type PaymentTokenSymbol } from "../src/payments/tokens";
 
 interface PrivateWalletProps {
   walletAddress: string | null;
@@ -14,12 +17,6 @@ interface PrivateWalletProps {
   initialRecipient?: string;
   initialActivationInvite?: boolean;
 }
-
-const formatStrk = (amount: bigint): string => {
-  const whole = amount / 10n ** 18n;
-  const fraction = (amount % 10n ** 18n).toString().padStart(18, "0").replace(/0+$/, "");
-  return fraction ? `${whole}.${fraction.slice(0, 6)}` : whole.toString();
-};
 
 const privacyError = (error: any): string => {
   const message = error?.message || error?.toString?.() || String(error);
@@ -33,7 +30,8 @@ const privacyError = (error: any): string => {
 };
 
 export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, initialRecipient, initialActivationInvite = false }) => {
-  const [activeTab, setActiveTab] = useState<"shield" | "unshield" | "send">(initialRecipient ? "send" : "shield");
+  const [activeTab, setActiveTab] = useState<"shield" | "send" | "payout" | "unshield">(initialRecipient ? "send" : "shield");
+  const [tokenSymbol, setTokenSymbol] = useState<PaymentTokenSymbol>("USDC");
   const [shieldAmount, setShieldAmount] = useState("1");
   const [unshieldAmount, setUnshieldAmount] = useState("1");
   const [sendToDomain, setSendToDomain] = useState(initialRecipient || "");
@@ -56,6 +54,9 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const privacyActivationTrackedRef = useRef(false);
   const { account, chainId, isConnected, isPrivacyCapable, supportedSpecs, switchNetwork, walletName } = useAccount();
   const isMainnet = chainId === constants.StarknetChainId.SN_MAIN;
+  const token = PAYMENT_TOKENS[tokenSymbol];
+  const tokenAddress = tokenAddressForChain(token, chainId);
+  const symbol = token.symbol;
 
   useEffect(() => {
     if (initialRecipient) {
@@ -71,7 +72,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     }
     setIsRefreshing(true);
     try {
-      const balances = await account.strk20Balances([STRK_TOKEN_ADDRESS]);
+      const balances = await account.strk20Balances([tokenAddress]);
       const entry: any = balances?.[0];
       setPrivateBalance(entry ? num.toBigInt(entry.balance ?? entry.amount ?? entry[1] ?? 0) : 0n);
       setNeedsPrivacyActivation(false);
@@ -88,7 +89,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     } finally {
       setIsRefreshing(false);
     }
-  }, [account, isMainnet, isPrivacyCapable]);
+  }, [account, isMainnet, isPrivacyCapable, tokenAddress]);
 
   useEffect(() => {
     privacyActivationTrackedRef.current = false;
@@ -137,38 +138,38 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   };
 
   const handleShield = () => runAction(async () => {
-    const amount = parseTokenAmount(shieldAmount);
+    const amount = parseTokenAmount(shieldAmount, token.decimals);
     await submit(
-      [depositAction(STRK_TOKEN_ADDRESS, amount)],
+      [depositAction(tokenAddress, amount)],
       "Confirm shielding in your privacy-enabled wallet. Proof generation can take several minutes…",
     );
-    setStatusMsg(`Shielded ${shieldAmount} STRK into the STRK20 privacy pool.`);
+    setStatusMsg(`Shielded ${shieldAmount} ${symbol} into the STRK20 privacy pool.`);
     trackFunnel("shield_confirmed", { network: isMainnet ? "mainnet" : "sepolia" });
   });
 
   const handleUnshield = () => runAction(async () => {
     if (!walletAddress) throw new Error("Connect a wallet first.");
-    const amount = parseTokenAmount(unshieldAmount);
-    if (amount > privateBalance) throw new Error("Cannot unshield more than your private STRK balance.");
+    const amount = parseTokenAmount(unshieldAmount, token.decimals);
+    if (amount > privateBalance) throw new Error(`Cannot unshield more than your private ${symbol} balance.`);
     await submit(
-      [withdrawAction(STRK_TOKEN_ADDRESS, amount, walletAddress)],
+      [withdrawAction(tokenAddress, amount, walletAddress)],
       "Confirm the STRK20 withdrawal in your wallet. The public recipient will be visible…",
     );
-    setStatusMsg(`Unshielded ${unshieldAmount} STRK to your public wallet.`);
+    setStatusMsg(`Unshielded ${unshieldAmount} ${symbol} to your public wallet.`);
     trackFunnel("unshield_confirmed", { network: isMainnet ? "mainnet" : "sepolia" });
   });
 
   const handlePrivateSend = () => runAction(async () => {
-    const amount = parseTokenAmount(sendAmount);
-    if (amount > privateBalance) throw new Error("Insufficient private STRK balance.");
+    const amount = parseTokenAmount(sendAmount, token.decimals);
+    if (amount > privateBalance) throw new Error(`Insufficient private ${symbol} balance.`);
     const resolved = await resolveAndPreviewRecipient();
     setActivationInviteLink(null);
     try {
       await submit(
-        [transferAction(STRK_TOKEN_ADDRESS, amount, resolved.address)],
+        [transferAction(tokenAddress, amount, resolved.address)],
         `Confirm the private transfer to ${resolved.label}. Sender, recipient, and amount are protected by STRK20…`,
       );
-      setStatusMsg(`Privately transferred ${sendAmount} STRK to ${resolved.label}.`);
+      setStatusMsg(`Privately transferred ${sendAmount} ${symbol} to ${resolved.label}.`);
       trackFunnel("private_send_confirmed", {
         network: isMainnet ? "mainnet" : "sepolia",
         recipient_type: resolved.source === "starknet-id" ? "starknet_id" : resolved.source === "brother-id" ? "brother_id" : "address",
@@ -177,6 +178,27 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       if (/NOT_REGISTERED/i.test(error?.message || String(error))) {
         setActivationInviteLink(`${window.location.origin}${window.location.pathname}?invite=1`);
         throw new Error("The recipient has not activated STRK20 privacy yet. Copy the activation invite below and ask them to activate before retrying.");
+      }
+      throw error;
+    }
+  });
+
+  const handleCampaignPayout = (rows: PreparedPayoutRow[]) => runAction(async () => {
+    const total = rows.reduce((sum, row) => sum + row.amount, 0n);
+    if (rows.length === 0) throw new Error("Add at least one recipient.");
+    if (total > privateBalance) throw new Error(`Insufficient private ${symbol} balance for this payout.`);
+    setActivationInviteLink(null);
+    try {
+      await submit(
+        rows.map((row) => transferAction(tokenAddress, row.amount, row.recipient.address)),
+        `Confirm one private payout to ${rows.length} recipient${rows.length === 1 ? "" : "s"}. Recipients and amounts are protected by STRK20…`,
+      );
+      setStatusMsg(`Privately paid ${formatTokenAmount(total, token.decimals)} ${symbol} to ${rows.length} recipient${rows.length === 1 ? "" : "s"} in one transaction.`);
+      trackFunnel("campaign_payout_confirmed", { network: isMainnet ? "mainnet" : "sepolia" });
+    } catch (error: any) {
+      if (/NOT_REGISTERED/i.test(error?.message || String(error))) {
+        setActivationInviteLink(`${window.location.origin}${window.location.pathname}?invite=1`);
+        throw new Error("At least one recipient has not activated STRK20 privacy, so the wallet could not build the payout and nothing was submitted. Share the activation invite below, or remove recipients who are not set up yet and retry.");
       }
       throw error;
     }
@@ -260,7 +282,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
           <Lock className="w-3.5 h-3.5" /> STRK20 · {isMainnet ? "Mainnet" : "Sepolia"}
         </div>
-        <h2 className="text-3xl font-bold font-display text-white">Private STRK Wallet</h2>
+        <h2 className="text-3xl font-bold font-display text-white">Private Payments</h2>
         <p className="text-gray-400 max-w-2xl mx-auto">
           Encrypted-note balances and STARK-proven transfers managed by your privacy-enabled wallet. Brother ID never receives your viewing key.
         </p>
@@ -308,7 +330,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
       {initialActivationInvite && (
         <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-5 text-sm text-purple-100">
-          <p className="font-bold text-base">You were invited to receive private STRK</p>
+          <p className="font-bold text-base">You were invited to receive private payments</p>
           <p className="mt-1 text-purple-100/75">Connect Xverse or Ready on Mainnet, activate privacy once in the wallet, then return here and check activation. Afterward you can create your own payment link.</p>
         </div>
       )}
@@ -323,8 +345,15 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-widest text-gray-500">Private STRK balance</p>
-            <p className="text-3xl font-mono font-bold text-white mt-1">{formatStrk(privateBalance)} STRK</p>
+            <p className="text-xs uppercase tracking-widest text-gray-500">Private {symbol} balance</p>
+            <p className="text-3xl font-mono font-bold text-white mt-1">{formatTokenAmount(privateBalance, token.decimals)} {symbol}</p>
+          </div>
+          <div className="ml-auto flex rounded-xl border border-white/10 p-1" role="group" aria-label="Token">
+            {PAYMENT_TOKEN_SYMBOLS.map((option) => (
+              <button key={option} onClick={() => { setTokenSymbol(option); setPrivateBalance(0n); }} disabled={isProcessing} className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${tokenSymbol === option ? "bg-white text-black" : "text-gray-400 hover:text-white"}`}>
+                {option}
+              </button>
+            ))}
           </div>
           <button onClick={() => void loadPrivateBalance()} disabled={!isPrivacyCapable || isRefreshing} className="p-3 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40">
             <RefreshCw className={`w-5 h-5 ${isRefreshing ? "animate-spin" : ""}`} />
@@ -349,7 +378,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       )}
 
       <div className="flex rounded-2xl bg-white/[0.03] border border-white/10 p-1">
-        {(["shield", "send", "unshield"] as const).map((tab) => (
+        {(["shield", "send", "payout", "unshield"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 rounded-xl capitalize font-semibold transition ${activeTab === tab ? "bg-orange-500 text-black" : "text-gray-400 hover:text-white"}`}>
             {tab}
           </button>
@@ -358,7 +387,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
 
       <div className="rounded-3xl border border-white/10 bg-[#0d0d0d] p-6 sm:p-8 space-y-6">
         {activeTab === "shield" && <>
-          <label className="block text-sm text-gray-300">STRK to shield<input value={shieldAmount} onChange={(e) => setShieldAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
+          <label className="block text-sm text-gray-300">{symbol} to shield<input value={shieldAmount} onChange={(e) => setShieldAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
           <button onClick={handleShield} disabled={!canTransact} className="w-full py-4 rounded-xl bg-orange-500 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Shield className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Shield with STRK20"}</button>
         </>}
         {activeTab === "send" && <>
@@ -370,11 +399,21 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
               <Check className="w-4 h-4 flex-none" />
             </div>
           )}
-          <label className="block text-sm text-gray-300">Private STRK amount<input value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
+          <label className="block text-sm text-gray-300">Private {symbol} amount<input value={sendAmount} onChange={(e) => setSendAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
           <button onClick={handlePrivateSend} disabled={!canTransact} className="w-full py-4 rounded-xl bg-emerald-400 text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Send className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Private transfer"}</button>
         </>}
+        {activeTab === "payout" && (
+          <CampaignPayout
+            token={token}
+            chainId={chainId}
+            privateBalance={privateBalance}
+            canTransact={canTransact}
+            isProcessing={isProcessing}
+            onPay={handleCampaignPayout}
+          />
+        )}
         {activeTab === "unshield" && <>
-          <label className="block text-sm text-gray-300">STRK to unshield<input value={unshieldAmount} onChange={(e) => setUnshieldAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
+          <label className="block text-sm text-gray-300">{symbol} to unshield<input value={unshieldAmount} onChange={(e) => setUnshieldAmount(e.target.value)} className="mt-2 w-full rounded-xl bg-black border border-white/10 p-4 text-white font-mono" /></label>
           <button onClick={handleUnshield} disabled={!canTransact} className="w-full py-4 rounded-xl bg-white text-black font-bold disabled:opacity-40 flex items-center justify-center gap-2"><Unlock className="w-5 h-5" />{isProcessing ? "Generating proof…" : "Unshield to public wallet"}</button>
         </>}
       </div>

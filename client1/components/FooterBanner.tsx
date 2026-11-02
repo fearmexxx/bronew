@@ -18,8 +18,8 @@ const FooterBanner: React.FC = () => {
             <div className="bg-gradient-to-r from-[#00f2a1] to-[#00c6ff] text-black p-2 sm:p-3 md:p-4 flex items-center justify-between gap-2 sm:gap-3 md:gap-4">
                 <div className="flex-grow flex items-center justify-center gap-x-2 sm:gap-x-3 md:gap-x-4 gap-y-2 flex-wrap sm:flex-nowrap min-w-0">
                     <div className="text-center sm:text-left min-w-0 flex-1">
-                        <p className="font-bold text-xs sm:text-sm md:text-base lg:text-lg break-words">Private STRK is live in beta</p>
-                        <p className="text-[10px] sm:text-xs md:text-sm break-words">Shield, transfer, and unshield STRK through compatible STRK20 wallets.</p>
+                        <p className="font-bold text-xs sm:text-sm md:text-base lg:text-lg break-words">Private USDC payouts are live in beta</p>
+                        <p className="text-[10px] sm:text-xs md:text-sm break-words">Pay a whole list privately in one approval through compatible STRK20 wallets.</p>
                     </div>
                 </div>
                 <button 
