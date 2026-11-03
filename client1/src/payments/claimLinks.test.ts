@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { constants } from "starknet";
+import { constants, num } from "starknet";
 import {
   SEPOLIA_CLAIM_ESCROW,
   buildClaimLink,
@@ -16,7 +16,7 @@ const ESCROW = "0xe5c";
 
 describe("claim links", () => {
   it("uses the deployed escrow on Sepolia and none on Mainnet", () => {
-    expect(claimEscrowAddress(constants.StarknetChainId.SN_SEPOLIA)).toBe(SEPOLIA_CLAIM_ESCROW);
+    expect(claimEscrowAddress(constants.StarknetChainId.SN_SEPOLIA)).toBe(num.toHex(SEPOLIA_CLAIM_ESCROW));
     expect(claimEscrowAddress(constants.StarknetChainId.SN_MAIN)).toBeNull();
   });
 
