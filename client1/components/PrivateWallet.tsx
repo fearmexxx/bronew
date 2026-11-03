@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle, Copy, Check, Link2, UserPlus } from "lucide-react";
+import { Shield, Lock, Unlock, Send, RefreshCw, ExternalLink, AlertTriangle, Copy, Check, Link2, UserPlus, Gift, BadgeCheck } from "lucide-react";
 import { CampaignPayout } from "./CampaignPayout";
 import { constants, num } from "starknet";
 import type { WALLET_API } from "@starknet-io/types-js";
@@ -8,7 +8,9 @@ import { providerForChain, voyagerTxUrl } from "../src/constants";
 import { depositAction, parseTokenAmount, transferAction, withdrawAction } from "../src/strk20/actions";
 import { recipientSourceLabel, resolveRecipient, type ResolvedRecipient } from "../src/payments/resolveRecipient";
 import { trackFunnel } from "../src/analytics/funnel";
-import type { PreparedPayoutRow } from "../src/payments/payoutList";
+import type { PayoutPlan } from "../src/payments/payoutList";
+import { buildClaimLink, claimActions, claimEscrowAddress, newClaimSecret, parkClaimLinksActions, type ClaimLinkDetails } from "../src/payments/claimLinks";
+import { publishReadinessCall } from "../src/payments/readiness";
 import { PAYMENT_TOKENS, PAYMENT_TOKEN_SYMBOLS, formatTokenAmount, tokenAddressForChain, type PaymentTokenSymbol } from "../src/payments/tokens";
 
 interface PrivateWalletProps {
@@ -16,7 +18,31 @@ interface PrivateWalletProps {
   domain?: string;
   initialRecipient?: string;
   initialActivationInvite?: boolean;
+  initialClaim?: ClaimLinkDetails;
 }
+
+interface IssuedClaimLink {
+  label: string;
+  amount: string;
+  link: string;
+}
+
+const ISSUED_LINKS_KEY = "brother_claim_links";
+
+// Payers keep their own links so they can reclaim unused ones. They stay in
+// this browser only and are never sent anywhere.
+const rememberIssuedLinks = (links: IssuedClaimLink[]) => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ISSUED_LINKS_KEY) || "[]");
+    const stored = Array.isArray(parsed) ? parsed : [];
+    localStorage.setItem(ISSUED_LINKS_KEY, JSON.stringify([
+      ...links.map((link) => ({ ...link, createdAt: new Date().toISOString() })),
+      ...stored,
+    ].slice(0, 200)));
+  } catch {
+    // Convenience only; the links are still shown on screen.
+  }
+};
 
 const privacyError = (error: any): string => {
   const message = error?.message || error?.toString?.() || String(error);
@@ -29,9 +55,13 @@ const privacyError = (error: any): string => {
   return message;
 };
 
-export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, initialRecipient, initialActivationInvite = false }) => {
+export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, initialRecipient, initialActivationInvite = false, initialClaim }) => {
   const [activeTab, setActiveTab] = useState<"shield" | "send" | "payout" | "unshield">(initialRecipient ? "send" : "shield");
-  const [tokenSymbol, setTokenSymbol] = useState<PaymentTokenSymbol>("USDC");
+  const [tokenSymbol, setTokenSymbol] = useState<PaymentTokenSymbol>(initialClaim?.token ?? "USDC");
+  const [issuedLinks, setIssuedLinks] = useState<IssuedClaimLink[]>([]);
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const [claimDone, setClaimDone] = useState(false);
+  const [readinessName, setReadinessName] = useState("");
   const [shieldAmount, setShieldAmount] = useState("1");
   const [unshieldAmount, setUnshieldAmount] = useState("1");
   const [sendToDomain, setSendToDomain] = useState(initialRecipient || "");
@@ -57,6 +87,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
   const token = PAYMENT_TOKENS[tokenSymbol];
   const tokenAddress = tokenAddressForChain(token, chainId);
   const symbol = token.symbol;
+  const escrowAddress = claimEscrowAddress(chainId);
 
   useEffect(() => {
     if (initialRecipient) {
@@ -183,26 +214,82 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
     }
   });
 
-  const handleCampaignPayout = (rows: PreparedPayoutRow[]) => runAction(async () => {
+  const handleCampaignPayout = (plan: PayoutPlan) => runAction(async () => {
+    const rows = [...plan.direct, ...plan.links];
     const total = rows.reduce((sum, row) => sum + row.amount, 0n);
     if (rows.length === 0) throw new Error("Add at least one recipient.");
     if (total > privateBalance) throw new Error(`Insufficient private ${symbol} balance for this payout.`);
+    if (plan.links.length > 0 && !escrowAddress) throw new Error("Claim links are not available on this network.");
     setActivationInviteLink(null);
+    setIssuedLinks([]);
+    const linkEntries = plan.links.map((row) => ({ row, secret: newClaimSecret(), amount: row.amount }));
     try {
       await submit(
-        rows.map((row) => transferAction(tokenAddress, row.amount, row.recipient.address)),
+        [
+          ...plan.direct.map((row) => transferAction(tokenAddress, row.amount, row.recipient.address)),
+          ...(escrowAddress ? parkClaimLinksActions(tokenAddress, escrowAddress, linkEntries) : []),
+        ],
         `Confirm one private payout to ${rows.length} recipient${rows.length === 1 ? "" : "s"}. Recipients and amounts are protected by STRK20…`,
       );
-      setStatusMsg(`Privately paid ${formatTokenAmount(total, token.decimals)} ${symbol} to ${rows.length} recipient${rows.length === 1 ? "" : "s"} in one transaction.`);
+      const base = `${window.location.origin}${window.location.pathname}`;
+      const issued = linkEntries.map(({ row, secret }) => {
+        const amount = formatTokenAmount(row.amount, token.decimals);
+        return {
+          label: row.recipient.label,
+          amount: `${amount} ${symbol}`,
+          link: buildClaimLink(base, { secret, token: symbol, amount, network: isMainnet ? "mainnet" : "sepolia" }),
+        };
+      });
+      if (issued.length > 0) {
+        rememberIssuedLinks(issued);
+        setIssuedLinks(issued);
+      }
+      setStatusMsg(`Privately paid ${formatTokenAmount(total, token.decimals)} ${symbol} to ${rows.length} recipient${rows.length === 1 ? "" : "s"} in one transaction.${issued.length ? ` Send each claim link below to its recipient.` : ""}`);
       trackFunnel("campaign_payout_confirmed", { network: isMainnet ? "mainnet" : "sepolia" });
     } catch (error: any) {
       if (/NOT_REGISTERED/i.test(error?.message || String(error))) {
         setActivationInviteLink(`${window.location.origin}${window.location.pathname}?invite=1`);
-        throw new Error("At least one recipient has not activated STRK20 privacy, so the wallet could not build the payout and nothing was submitted. Share the activation invite below, or remove recipients who are not set up yet and retry.");
+        throw new Error("At least one directly paid recipient has not activated STRK20 privacy, so the wallet could not build the payout and nothing was submitted. Turn on claim links, or share the activation invite below and retry.");
       }
       throw error;
     }
   });
+
+  const handleClaim = () => runAction(async () => {
+    if (!initialClaim) return;
+    if (!walletAddress) throw new Error("Connect a wallet first.");
+    const expectedNetwork = initialClaim.network === "mainnet";
+    if (expectedNetwork !== isMainnet) throw new Error(`This link is for Starknet ${expectedNetwork ? "Mainnet" : "Sepolia"}. Switch networks in your wallet first.`);
+    if (!escrowAddress) throw new Error("Claim links are not available on this network.");
+    await submit(
+      claimActions(tokenAddressForChain(PAYMENT_TOKENS[initialClaim.token], chainId), escrowAddress, initialClaim.secret, walletAddress),
+      "Confirm the private claim in your wallet. Proof generation can take several minutes…",
+    );
+    setClaimDone(true);
+    window.history.replaceState({}, "", window.location.pathname);
+    setStatusMsg(`Claimed ${initialClaim.amount} ${initialClaim.token} into your private balance.`);
+    trackFunnel("claim_link_claimed", { network: isMainnet ? "mainnet" : "sepolia" });
+  });
+
+  const handlePublishReadiness = () => runAction(async () => {
+    if (!account) throw new Error("Connect a wallet first.");
+    if (isMainnet) throw new Error(".real names are a Sepolia beta. Switch to Sepolia to publish readiness.");
+    const response = await account.execute([publishReadinessCall(readinessName)]);
+    setTxHash(response.transaction_hash);
+    setStatusMsg("Publishing readiness on your Brother name…");
+    await providerForChain(chainId).waitForTransaction(response.transaction_hash);
+    setStatusMsg(`${readinessName.trim().toLowerCase()} now tells payers you can receive privately.`);
+  });
+
+  const copyIssuedLink = async (link: string) => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedLink(link);
+      window.setTimeout(() => setCopiedLink(null), 2000);
+    } catch {
+      setStatusMsg("Could not copy the link. Allow clipboard access and try again.");
+    }
+  };
 
   const resolveAndPreviewRecipient = async (): Promise<ResolvedRecipient> => {
     const key = `${chainId || "unknown"}:${sendToDomain.trim().toLowerCase()}`;
@@ -335,6 +422,20 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
         </div>
       )}
 
+      {initialClaim && !claimDone && (
+        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-5 text-sm text-purple-100 space-y-3">
+          <p className="font-bold text-base flex items-center gap-2"><Gift className="w-5 h-5" />You have {initialClaim.amount} {initialClaim.token} to claim privately</p>
+          <ol className="list-decimal pl-5 space-y-1 text-purple-100/80">
+            <li>Connect Xverse or Ready on Starknet {initialClaim.network === "mainnet" ? "Mainnet" : "Sepolia"}.</li>
+            <li>Activate privacy once in the wallet if you haven't yet.</li>
+            <li>Claim. The payment lands in your private balance, and nobody can see who paid you.</li>
+          </ol>
+          <button onClick={handleClaim} disabled={!canTransact || !isPrivacyActivated} className="rounded-xl bg-purple-300 px-4 py-2 font-bold text-black disabled:opacity-50">
+            {isProcessing ? "Generating proof…" : isPrivacyActivated ? "Claim privately" : "Activate privacy to claim"}
+          </button>
+        </div>
+      )}
+
       {isConnected && !isMainnet && (
         <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 flex items-center justify-between gap-4 text-sm text-blue-100">
           <span>You are using Sepolia test funds. Switch to Mainnet for live STRK20 private payments.</span>
@@ -377,6 +478,24 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
         </div>
       )}
 
+      {isConnected && !isMainnet && isPrivacyActivated && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
+          <div className="flex gap-3">
+            <BadgeCheck className="w-5 h-5 text-emerald-400 flex-none mt-0.5" />
+            <div>
+              <p className="font-semibold text-white">Tell payers you can receive privately</p>
+              <p className="text-xs text-gray-400 mt-1">Marks your .real name as ready, so payouts send to you directly instead of by claim link. It reveals only that this name has privacy turned on.</p>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input value={readinessName} onChange={(e) => setReadinessName(e.target.value)} placeholder="yourname.real" className="flex-1 rounded-xl bg-black border border-white/10 p-3 text-white" />
+            <button onClick={handlePublishReadiness} disabled={!canTransact || !readinessName.trim()} className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-bold text-emerald-300 disabled:opacity-40 whitespace-nowrap">
+              Mark as ready
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex rounded-2xl bg-white/[0.03] border border-white/10 p-1">
         {(["shield", "send", "payout", "unshield"] as const).map((tab) => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-3 rounded-xl capitalize font-semibold transition ${activeTab === tab ? "bg-orange-500 text-black" : "text-gray-400 hover:text-white"}`}>
@@ -409,6 +528,7 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
             privateBalance={privateBalance}
             canTransact={canTransact}
             isProcessing={isProcessing}
+            claimLinksAvailable={Boolean(escrowAddress)}
             onPay={handleCampaignPayout}
           />
         )}
@@ -419,6 +539,20 @@ export const PrivateWallet: React.FC<PrivateWalletProps> = ({ walletAddress, ini
       </div>
 
       {statusMsg && <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm text-gray-200">{statusMsg}</div>}
+      {issuedLinks.length > 0 && (
+        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 text-sm text-purple-100 space-y-2">
+          <p className="font-semibold">Claim links: send each one only to its recipient</p>
+          <p className="text-xs text-purple-100/70">Anyone with a link can claim it. They are also saved in this browser so you can reclaim unused ones by opening the link yourself.</p>
+          {issuedLinks.map((issued) => (
+            <div key={issued.link} className="flex items-center justify-between gap-3">
+              <span className="truncate">{issued.label} · {issued.amount}</span>
+              <button onClick={() => void copyIssuedLink(issued.link)} className="rounded-lg border border-purple-400/30 px-3 py-1 text-xs font-bold whitespace-nowrap">
+                {copiedLink === issued.link ? "Copied" : "Copy link"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {activationInviteLink && (
         <button onClick={copyActivationInvite} className="w-full rounded-xl border border-purple-500/30 bg-purple-500/10 px-4 py-3 text-sm font-bold text-purple-200 flex items-center justify-center gap-2">
           {inviteCopied ? <Check className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}

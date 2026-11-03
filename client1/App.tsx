@@ -12,6 +12,7 @@ import PrivateContacts from './components/PrivateContacts';
 import AnalyticsConsent from './components/AnalyticsConsent';
 import { useAccount, useDisconnect } from './src/starknet/StarknetProvider';
 import { trackFunnel } from './src/analytics/funnel';
+import { parseClaimLink } from './src/payments/claimLinks';
 import { constants } from 'starknet';
 
 // Replaced grid with organic mesh gradients
@@ -64,7 +65,8 @@ const App: React.FC = () => {
     const initialParams = new URLSearchParams(window.location.search);
     const paymentRecipient = initialParams.get('pay') || undefined;
     const activationInvite = initialParams.get('invite') === '1';
-    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient || activationInvite ? 'private-wallet' : 'search');
+    const [claimLink] = useState(() => parseClaimLink(window.location.hash) ?? undefined);
+    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient || activationInvite || claimLink ? 'private-wallet' : 'search');
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
     const [targetRecipient, setTargetRecipient] = useState<string | undefined>(paymentRecipient);
     const { address, isConnected, chainId } = useAccount();
@@ -140,6 +142,7 @@ const App: React.FC = () => {
                             walletAddress={isConnected ? address ?? null : null}
                             initialRecipient={targetRecipient}
                             initialActivationInvite={activationInvite}
+                            initialClaim={claimLink}
                         />
                     </div>
                 )}

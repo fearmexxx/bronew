@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_PAYOUT_RECIPIENTS, parsePayoutList, preparePayout } from "./payoutList";
+import { MAX_PAYOUT_RECIPIENTS, parsePayoutList, planPayout, preparePayout } from "./payoutList";
 import type { ResolvedRecipient } from "./resolveRecipient";
 
 const recipient = (label: string, address: string): ResolvedRecipient => ({
@@ -75,5 +75,25 @@ describe("preparePayout", () => {
     expect(prepared.rows).toHaveLength(1);
     expect(prepared.errors).toEqual([{ line: 2, message: expect.stringContaining("same address as line 1") }]);
     expect(prepared.total).toBe(1_000_000n);
+  });
+});
+
+describe("planPayout", () => {
+  it("pays ready recipients directly and sends claim links to the rest", async () => {
+    const prepared = await preparePayout(
+      parsePayoutList("alice.stark, 1\nbob.stark, 2"),
+      6,
+      resolve,
+      async (recipient) => recipient.label === "alice.stark" ? "ready" : "unknown",
+    );
+    const plan = planPayout(prepared.rows, true);
+    expect(plan.direct.map((row) => row.recipient.label)).toEqual(["alice.stark"]);
+    expect(plan.links.map((row) => row.recipient.label)).toEqual(["bob.stark"]);
+  });
+
+  it("pays everyone directly when claim links are off", async () => {
+    const prepared = await preparePayout(parsePayoutList("alice.stark, 1\nbob.stark, 2"), 6, resolve);
+    expect(prepared.rows.every((row) => row.readiness === "unknown")).toBe(true);
+    expect(planPayout(prepared.rows, false)).toEqual({ direct: prepared.rows, links: [] });
   });
 });

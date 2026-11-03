@@ -15,6 +15,7 @@ export type FunnelEvent =
   | "recipient_resolved"
   | "private_send_confirmed"
   | "campaign_payout_confirmed"
+  | "claim_link_claimed"
   | "unshield_confirmed"
   | "payment_link_copied"
   | "activation_invite_copied";

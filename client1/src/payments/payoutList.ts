@@ -1,4 +1,5 @@
 import { parseTokenAmount } from "../strk20/actions";
+import type { Readiness } from "./readiness";
 import type { ResolvedRecipient } from "./resolveRecipient";
 
 // One wallet approval covers the whole batch; keep it within what a single
@@ -25,6 +26,7 @@ export interface PreparedPayoutRow {
   line: number;
   recipient: ResolvedRecipient;
   amount: bigint;
+  readiness: Readiness;
 }
 
 export interface PreparedPayout {
@@ -69,13 +71,15 @@ export const preparePayout = async (
   parsed: ParsedPayoutList,
   decimals: number,
   resolve: (recipient: string) => Promise<ResolvedRecipient>,
+  checkReadiness: (recipient: ResolvedRecipient) => Promise<Readiness> = async () => "unknown",
 ): Promise<PreparedPayout> => {
   const errors = [...parsed.errors];
   const settled = await Promise.all(parsed.lines.map(async (entry) => {
     try {
       const amount = parseTokenAmount(entry.amount, decimals);
       const recipient = await resolve(entry.recipient);
-      return { line: entry.line, recipient, amount } satisfies PreparedPayoutRow;
+      const readiness = await checkReadiness(recipient);
+      return { line: entry.line, recipient, amount, readiness } satisfies PreparedPayoutRow;
     } catch (error: any) {
       errors.push({ line: entry.line, message: `${entry.recipient}: ${error?.message || String(error)}` });
       return null;
@@ -98,3 +102,19 @@ export const preparePayout = async (
   errors.sort((a, b) => a.line - b.line);
   return { rows, errors, total: rows.reduce((sum, row) => sum + row.amount, 0n) };
 };
+
+export interface PayoutPlan {
+  /** Paid by private transfer; every one must already be pool-ready. */
+  direct: PreparedPayoutRow[];
+  /** Parked in the claim escrow; each recipient gets a claim link. */
+  links: PreparedPayoutRow[];
+}
+
+/**
+ * With claim links available, only recipients who published readiness are
+ * paid directly: one unregistered recipient would make the wallet reject the
+ * whole batch. Everyone else gets a claim link they redeem after setup.
+ */
+export const planPayout = (rows: PreparedPayoutRow[], useClaimLinks: boolean): PayoutPlan => useClaimLinks
+  ? { direct: rows.filter((row) => row.readiness === "ready"), links: rows.filter((row) => row.readiness !== "ready") }
+  : { direct: rows, links: [] };
