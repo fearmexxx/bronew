@@ -11,6 +11,9 @@ const ESCROW_CLAIM = "0x1";
 
 const env = (import.meta as any).env ?? {};
 
+// contracts/claim_escrow deployed on Sepolia against the Sepolia STRK20 pool.
+export const SEPOLIA_CLAIM_ESCROW = "0x0645bdc0e3d6e4a8d4b74fbd6b66fc608b7d0c0c3fd71ab64ec530e82c3941e7";
+
 /**
  * The claim escrow is only configured where it has been deployed. Mainnet stays
  * unset until the contract has had an external review.
@@ -19,7 +22,7 @@ export const claimEscrowAddress = (chainId?: string): string | null => {
   const address = chainId === constants.StarknetChainId.SN_MAIN
     ? env.VITE_CLAIM_ESCROW_MAINNET
     : chainId === constants.StarknetChainId.SN_SEPOLIA
-      ? env.VITE_CLAIM_ESCROW_SEPOLIA
+      ? env.VITE_CLAIM_ESCROW_SEPOLIA || SEPOLIA_CLAIM_ESCROW
       : undefined;
   return address ? num.toHex(address) : null;
 };

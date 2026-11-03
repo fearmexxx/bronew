@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { constants } from "starknet";
 import {
+  SEPOLIA_CLAIM_ESCROW,
   buildClaimLink,
+  claimEscrowAddress,
   claimActions,
   claimCommitment,
   newClaimSecret,
@@ -12,6 +15,11 @@ const TOKEN = "0x0512feac6339ff7889822cb5aa2a86c848e9d392bb0e3e237c008674feed834
 const ESCROW = "0xe5c";
 
 describe("claim links", () => {
+  it("uses the deployed escrow on Sepolia and none on Mainnet", () => {
+    expect(claimEscrowAddress(constants.StarknetChainId.SN_SEPOLIA)).toBe(SEPOLIA_CLAIM_ESCROW);
+    expect(claimEscrowAddress(constants.StarknetChainId.SN_MAIN)).toBeNull();
+  });
+
   it("hashes secrets exactly like the Cairo escrow", () => {
     // Same vector as contracts/claim_escrow/src/tests.cairo.
     expect(claimCommitment("0x1234")).toBe("0x5791f393f4ea2f6e646ed5acb82fb96fe78ec1cc4a3ce412e50701d38047bd8");

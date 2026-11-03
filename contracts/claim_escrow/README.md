@@ -39,9 +39,18 @@ sncast --account <your-sepolia-account> deploy --network sepolia \
   --constructor-calldata 0x0254a6b2997ef52e9f830ce1f543f6b29768295e8d17e2267d672c552cfe0d91
 ```
 
-Then set `VITE_CLAIM_ESCROW_SEPOLIA=<deployed address>` for the frontend
-(Vercel Preview and Production env, or `client1/.env.local`). Until it is set,
-the app hides claim links on Sepolia.
+`--network sepolia` in sncast 0.45 no longer reaches a working RPC; use a
+newer sncast or pass `--url https://starknet-sepolia-rpc.publicnode.com`.
+
+### Current Sepolia deployment
+
+- Address: [`0x0645bdc0e3d6e4a8d4b74fbd6b66fc608b7d0c0c3fd71ab64ec530e82c3941e7`](https://sepolia.voyager.online/contract/0x0645bdc0e3d6e4a8d4b74fbd6b66fc608b7d0c0c3fd71ab64ec530e82c3941e7)
+- Class hash: `0x482109ec45233d073bc2670d4268445b5e54b7f024ec435ab7380e0c1ed8405`
+- `privacy_contract()` returns the Sepolia pool above.
+
+The frontend uses this address by default on Sepolia
+(`client1/src/payments/claimLinks.ts`); `VITE_CLAIM_ESCROW_SEPOLIA` overrides it.
+Mainnet has no default and stays off until `VITE_CLAIM_ESCROW_MAINNET` is set.
 
 ## Before Mainnet
 
