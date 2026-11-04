@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Brand name and app URL appear in this file only. To rename, replace "Brother" and APP_URL below. -->
+  <title>Brother: private USDC payouts on Starknet</title>
+  <meta name="description" content="Pay KOLs, ambassadors and bounty winners in USDC on Starknet. One approval for the whole list, amounts and recipients kept private, and a claim link for anyone not set up yet.">
+  <meta property="og:title" content="Brother: private USDC payouts on Starknet">
+  <meta property="og:description" content="One approval for the whole list. Private by default. Claim links for everyone else.">
+  <meta name="theme-color" content="#0b0d10">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --surface: #12161b;
+      --surface-2: #181d24;
+      --line: rgba(255, 255, 255, 0.08);
+      --line-strong: rgba(255, 255, 255, 0.16);
+      --text: #eef1f4;
+      --muted: #98a2ae;
+      --faint: #66707c;
+      --accent: #ff7a1a;
+      --accent-ink: #160a00;
+      --ok: #34d399;
+      --link: #c4b5fd;
+      --radius: 14px;
+      --max: 1120px;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 Inter, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    a { color: inherit; }
+    h1, h2, h3 { font-family: "Space Grotesk", Inter, sans-serif; letter-spacing: -0.02em; margin: 0; }
+    p { margin: 0; }
+    .wrap { max-width: var(--max); margin: 0 auto; padding: 0 16px; }
+    @media (min-width: 720px) { .wrap { padding: 0 32px; } }
+
+    /* Nav */
+    nav { position: sticky; top: 0; z-index: 10; background: rgba(11, 13, 16, 0.86); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+    nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 16px; }
+    .logo { display: flex; align-items: center; gap: 10px; font: 700 18px "Space Grotesk", sans-serif; text-decoration: none; }
+    .logo-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; color: var(--accent-ink); font-size: 15px; }
+    .nav-links { display: none; gap: 28px; font-size: 14px; color: var(--muted); }
+    .nav-links a { text-decoration: none; }
+    .nav-links a:hover { color: var(--text); }
+    @media (min-width: 860px) { .nav-links { display: flex; } }
+
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid transparent; transition: background 0.15s, border-color 0.15s; white-space: nowrap; }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); }
+    .btn-primary:hover { background: #ff8f3d; }
+    .btn-ghost { border-color: var(--line-strong); color: var(--text); }
+    .btn-ghost:hover { background: rgba(255, 255, 255, 0.05); }
+    .btn:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    nav .btn { height: 38px; padding: 0 16px; font-size: 14px; }
+
+    /* Hero */
+    .hero { padding: 72px 0 56px; }
+    .hero-grid { display: grid; gap: 48px; align-items: center; }
+    @media (min-width: 960px) { .hero { padding: 104px 0 88px; } .hero-grid { grid-template-columns: 1.05fr 1fr; gap: 64px; } }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; margin-bottom: 24px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+    .hero h1 { font-size: clamp(38px, 7vw, 64px); line-height: 1.02; }
+    .hero h1 span { color: var(--accent); }
+    .hero .lede { margin-top: 20px; font-size: 18px; color: var(--muted); max-width: 520px; }
+    .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+    .hero-note { margin-top: 16px; font-size: 13px; color: var(--faint); }
+
+    /* Payout mock */
+    .mock { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; box-shadow: 0 30px 80px -40px rgba(0, 0, 0, 0.8); }
+    .mock-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+    .mock-head b { color: var(--text); font-weight: 600; }
+    .row { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 14px; align-items: center; }
+    .who { min-width: 0; }
+    .who strong { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tag { font-size: 12px; color: var(--faint); }
+    .tag.ready { color: var(--ok); }
+    .tag.link { color: var(--link); }
+    .amt { font-family: "JetBrains Mono", monospace; font-size: 13px; }
+    .mock-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; background: var(--surface-2); flex-wrap: wrap; }
+    .mock-foot .total { font-family: "JetBrains Mono", monospace; font-weight: 500; }
+    .mock-foot .pay { background: var(--ok); color: #03140d; border-radius: 10px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
+
+    /* Sections */
+    section { padding: 72px 0; border-top: 1px solid var(--line); }
+    @media (min-width: 960px) { section { padding: 96px 0; } }
+    .kicker { font-size: 13px; color: var(--accent); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 12px; }
+    section h2 { font-size: clamp(28px, 4.4vw, 40px); line-height: 1.1; max-width: 680px; }
+    .sub { margin-top: 14px; color: var(--muted); max-width: 640px; font-size: 17px; }
+
+    .steps { display: grid; gap: 16px; margin-top: 40px; counter-reset: step; }
+    @media (min-width: 860px) { .steps { grid-template-columns: repeat(3, 1fr); } }
+    .step { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
+    .step::before { counter-increment: step; content: counter(step); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-strong); font: 600 14px "Space Grotesk", sans-serif; margin-bottom: 18px; }
+    .step h3 { font-size: 19px; margin-bottom: 8px; }
+    .step p { color: var(--muted); font-size: 15px; }
+
+    .features { display: grid; gap: 1px; margin-top: 40px; background: var(--line); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    @media (min-width: 720px) { .features { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1000px) { .features { grid-template-columns: repeat(3, 1fr); } }
+    .feature { background: var(--bg); padding: 28px 24px; }
+    .feature h3 { font-size: 18px; margin-bottom: 8px; }
+    .feature p { color: var(--muted); font-size: 15px; }
+    .feature .status { display: inline-block; margin-top: 14px; font-size: 12px; color: var(--faint); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+    .feature .status.live { color: var(--ok); border-color: rgba(52, 211, 153, 0.3); }
+
+    .split { display: grid; gap: 16px; margin-top: 40px; }
+    @media (min-width: 860px) { .split { grid-template-columns: 1fr 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; }
+    .card h3 { font-size: 20px; margin-bottom: 14px; }
+    .card ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+    .card li { display: grid; grid-template-columns: 20px 1fr; gap: 10px; color: var(--muted); font-size: 15px; }
+    .card li::before { content: "✓"; color: var(--ok); font-weight: 700; }
+    .card.visible li::before { content: "○"; color: var(--faint); }
+
+    .roadmap { margin-top: 40px; display: grid; gap: 12px; }
+    .stage { display: grid; gap: 6px 24px; padding: 20px 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    @media (min-width: 720px) { .stage { grid-template-columns: 180px 1fr; } }
+    .stage .when { font: 600 15px "Space Grotesk", sans-serif; }
+    .stage .when small { display: block; font: 400 13px Inter, sans-serif; color: var(--faint); }
+    .stage p { color: var(--muted); font-size: 15px; }
+    .stage.now { border-color: rgba(255, 122, 26, 0.45); }
+
+    .cta { text-align: center; }
+    .cta h2 { margin: 0 auto; }
+    .cta .sub { margin: 14px auto 0; }
+    .cta .hero-cta { justify-content: center; }
+
+    footer { border-top: 1px solid var(--line); padding: 32px 0 48px; color: var(--faint); font-size: 13px; }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; }
+    footer a { text-decoration: none; }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <a class="logo" href="#top" aria-label="Brother home"><span class="logo-mark" aria-hidden="true">B</span>Brother</a>
+      <div class="nav-links">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#roadmap">Roadmap</a>
+      </div>
+      <a class="btn btn-primary" data-app href="https://bronew.vercel.app/">Open app</a>
+    </div>
+  </nav>
+
+  <main id="top">
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <span class="eyebrow"><span class="dot" aria-hidden="true"></span>Private payouts on Starknet, now in beta</span>
+          <h1>Pay your whole community. <span>Reveal less.</span></h1>
+          <p class="lede">Send USDC to KOLs, ambassadors and bounty winners in one approval. Amounts and recipients stay private, and anyone who isn't set up yet gets a claim link instead of blocking the payout.</p>
+          <div class="hero-cta">
+            <a class="btn btn-primary" data-app href="https://bronew.vercel.app/">Run a payout</a>
+            <a class="btn btn-ghost" href="#how">See how it works</a>
+          </div>
+          <p class="hero-note">Private transfers settle on Starknet Mainnet. Claim links are live on Sepolia.</p>
+        </div>
+
+        <div class="mock" role="img" aria-label="Example payout: four recipients, two paid directly and two by claim link, 1,150 USDC in one approval">
+          <div class="mock-head"><span><b>October ambassadors</b> · 4 recipients</span><span>USDC</span></div>
+          <div class="row"><div class="who"><strong>alice.real</strong><span class="tag ready">ready · direct</span></div><span class="amt">500.00</span></div>
+          <div class="row"><div class="who"><strong>kol-vn.stark</strong><span class="tag ready">ready · direct</span></div><span class="amt">350.00</span></div>
+          <div class="row"><div class="who"><strong>mod-dao.stark</strong><span class="tag link">claim link</span></div><span class="amt">200.00</span></div>
+          <div class="row"><div class="who"><strong>0x04a1…c9f2</strong><span class="tag link">claim link</span></div><span class="amt">100.00</span></div>
+          <div class="mock-foot"><span class="total">1,150.00 USDC</span><span class="pay">Pay 4 privately</span></div>
+        </div>
+      </div>
+    </header>
+
+    <section id="how">
+      <div class="wrap">
+        <p class="kicker">How it works</p>
+        <h2>From a spreadsheet to a private payout in three steps</h2>
+        <p class="sub">No CSV templates, no recipient onboarding calls, no public list of who earned what.</p>
+        <div class="steps">
+          <div class="step"><h3>Paste the list</h3><p>One recipient and one amount per line, straight from your sheet. Use .real or .stark names, or plain addresses.</p></div>
+          <div class="step"><h3>Check every recipient</h3><p>Each name is resolved and checked before you sign. Bad lines, duplicates and a total above your balance are caught here.</p></div>
+          <div class="step"><h3>Approve once</h3><p>Ready recipients are paid privately. Everyone else gets a claim link, funded in the same transaction, that they redeem after a one-time setup.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <p class="kicker">Built for projects that pay people</p>
+        <h2>The recipient side of private payments, done properly</h2>
+        <p class="sub">Most private payroll tools assume every recipient is already set up. Ours don't need to be.</p>
+        <div class="features">
+          <div class="feature"><h3>Campaign payouts</h3><p>Up to 50 recipients in one wallet approval, in USDC or STRK.</p><span class="status live">Live</span></div>
+          <div class="feature"><h3>Claim links</h3><p>Pay anyone, even with no wallet set up yet. The link is the payment, and you can take back any link nobody uses.</p><span class="status live">Sepolia</span></div>
+          <div class="feature"><h3>Ready handles</h3><p>Recipients mark their name as ready to receive privately, so payers know who gets paid directly.</p><span class="status live">Sepolia</span></div>
+          <div class="feature"><h3>Earnings card</h3><p>One private record of what you earned across every project that paid you, to share only when you choose.</p><span class="status">Next</span></div>
+          <div class="feature"><h3>Sponsored setup</h3><p>Recipients claim without holding STRK for gas. The payer covers it.</p><span class="status">Next</span></div>
+          <div class="feature"><h3>Resolver API</h3><p>Free name resolution and readiness checks for wallets and payroll apps that want the same recipient layer.</p><span class="status">Next</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <div class="wrap">
+        <p class="kicker">Privacy, plainly</p>
+        <h2>What stays private and what doesn't</h2>
+        <p class="sub">Payments run through Starknet's STRK20 privacy pool. We never see your viewing keys.</p>
+        <div class="split">
+          <div class="card">
+            <h3>Private</h3>
+            <ul>
+              <li>Who you paid, for direct private transfers</li>
+              <li>How much each person received</li>
+              <li>Your balance and your payout history</li>
+              <li>Who claimed a claim link</li>
+            </ul>
+          </div>
+          <div class="card visible">
+            <h3>Visible on-chain</h3>
+            <ul>
+              <li>That your wallet used the privacy pool</li>
+              <li>The amount parked behind each claim link, but not who paid it</li>
+              <li>Shielding and unshielding to or from a public address</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="roadmap">
+      <div class="wrap">
+        <p class="kicker">Roadmap</p>
+        <h2>Rolling out in the open</h2>
+        <div class="roadmap">
+          <div class="stage now"><div class="when">Now<small>Sepolia beta</small></div><p>Campaign payouts, claim links and ready handles on Sepolia with pilot projects. Private USDC transfers on Mainnet.</p></div>
+          <div class="stage"><div class="when">Next<small>Mainnet beta</small></div><p>Claim links on Mainnet after an external review of the escrow, with sponsored setup for recipients and per-payout pricing.</p></div>
+          <div class="stage"><div class="when">Later<small>Open the layer</small></div><p>Earnings cards, the public resolver API, and integrations with wallets and payroll apps.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap">
+        <h2>Running a campaign this month?</h2>
+        <p class="sub">Pilot projects get their first payouts set up with us, free.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" data-app href="https://bronew.vercel.app/">Open the app</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>© 2026 Brother. Built on Starknet.</span>
+      <span><a href="https://github.com/fearmexxx/bronew">GitHub</a></span>
+    </div>
+  </footer>
+</body>
+</html>
