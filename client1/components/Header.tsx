@@ -62,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, setCurrentView, walletAddr
                             B
                         </div>
                         <span className="text-xl font-display font-bold tracking-tight text-white group-hover:text-gray-200 transition-colors">
-                            Brother ID v2
+                            BrotherPay
                         </span>
                     </button>
 

@@ -25,7 +25,7 @@ const Hero: React.FC<{ onPrivateWallet: () => void; onRegister: () => void }> = 
         {/* Badge */}
         <div className="relative z-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-orange-200/80 text-sm font-medium tracking-wide mb-8 animate-fade-in backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
-            <span>Brother ID Beta · STRK20 Privacy on Starknet</span>
+            <span>BrotherPay beta · STRK20 privacy on Starknet</span>
         </div>
 
         {/* Main Text */}
