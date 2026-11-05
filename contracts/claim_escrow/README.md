@@ -58,6 +58,11 @@ Not reviewed. Known limits to resolve in an external review first:
 
 - A claim puts the secret in public calldata. Someone who sees a pending claim
   could submit their own claim with that secret first. Binding the claim to
-  the claimer (for example a signature over the note) closes this.
+  the claimer (for example a signature over the note) closes this. That
+  needs the open note's id before the claim is signed, but the wallet only
+  fills `${openNoteIds[0]}` in while assembling the transaction. Open
+  question for StarkWare: can a dapp derive the open note id in advance, or
+  can a helper read the open note's recipient? StarkWare's own example
+  escrow has the same limit.
 - Parked and claimed amounts are public; payer and claimer are not.
 - No expiry: unused links stay parked until someone with the secret claims.
