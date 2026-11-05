@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-landing.mjs",
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "prebuild": "node scripts/copy-landing.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

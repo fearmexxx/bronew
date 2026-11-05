@@ -31,6 +31,11 @@ jobs:
         run: |
           cd contracts/brotherdomain
           snforge test
+      - name: Build and Test Claim Escrow
+        run: |
+          cd contracts/claim_escrow
+          scarb build
+          scarb cairo-test
 
   frontend:
     name: Frontend Client & Build

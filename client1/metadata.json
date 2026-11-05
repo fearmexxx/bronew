@@ -1,5 +1,5 @@
 {
-  "name": "Starknet Brother ID",
-  "description": "A decentralized domain name service application for the Starknet ecosystem. Users can manage, browse, register, find, and auction domain names using Starknet wallets and the $BROTHER token. The app features a clean, modern, cyberpunk-themed user interface.",
+  "name": "BrotherPay",
+  "description": "Private USDC and STRK payouts on Starknet. Projects pay KOLs, ambassadors and contributors in one approval, with claim links for recipients who are not set up yet, and .real names as recipient handles.",
   "requestFramePermissions": []
 }

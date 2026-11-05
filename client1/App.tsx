@@ -12,6 +12,7 @@ import PrivateContacts from './components/PrivateContacts';
 import AnalyticsConsent from './components/AnalyticsConsent';
 import { useAccount, useDisconnect } from './src/starknet/StarknetProvider';
 import { trackFunnel } from './src/analytics/funnel';
+import { parseClaimLink } from './src/payments/claimLinks';
 import { constants } from 'starknet';
 
 // Replaced grid with organic mesh gradients
@@ -24,16 +25,16 @@ const Hero: React.FC<{ onPrivateWallet: () => void; onRegister: () => void }> = 
         {/* Badge */}
         <div className="relative z-10 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-orange-200/80 text-sm font-medium tracking-wide mb-8 animate-fade-in backdrop-blur-md">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-400"></span>
-            <span>Brother ID Beta · STRK20 Privacy on Starknet</span>
+            <span>BrotherPay beta · STRK20 privacy on Starknet</span>
         </div>
 
         {/* Main Text */}
         <div className="relative z-10 max-w-5xl mx-auto space-y-8">
             <h1 className="font-display text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-semibold tracking-tighter text-white leading-[0.9] text-gradient-warm">
-                SEND STRK.<br /> REVEAL LESS.
+                PAY PEOPLE.<br /> REVEAL LESS.
             </h1>
             <p className="max-w-2xl mx-auto text-gray-400 text-lg sm:text-xl font-light leading-relaxed tracking-wide">
-                Send private STRK to a memorable name instead of exposing your payment graph. <br className="hidden sm:block" />
+                Pay contributors, KOLs, and ambassadors in private USDC or STRK, one at a time or a whole list in one approval. <br className="hidden sm:block" />
                 STRK20 settles on Mainnet; `.real` identity registration is currently a Sepolia beta.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -64,7 +65,8 @@ const App: React.FC = () => {
     const initialParams = new URLSearchParams(window.location.search);
     const paymentRecipient = initialParams.get('pay') || undefined;
     const activationInvite = initialParams.get('invite') === '1';
-    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient || activationInvite ? 'private-wallet' : 'search');
+    const [claimLink] = useState(() => parseClaimLink(window.location.hash) ?? undefined);
+    const [currentView, setCurrentView] = useState<'search' | 'profile' | 'identity' | 'private-wallet' | 'contacts' | 'pricing'>(paymentRecipient || activationInvite || claimLink ? 'private-wallet' : 'search');
     const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
     const [targetRecipient, setTargetRecipient] = useState<string | undefined>(paymentRecipient);
     const { address, isConnected, chainId } = useAccount();
@@ -140,6 +142,7 @@ const App: React.FC = () => {
                             walletAddress={isConnected ? address ?? null : null}
                             initialRecipient={targetRecipient}
                             initialActivationInvite={activationInvite}
+                            initialClaim={claimLink}
                         />
                     </div>
                 )}
